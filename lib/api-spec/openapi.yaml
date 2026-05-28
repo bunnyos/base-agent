@@ -1,0 +1,554 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Bunny API — DeFi companion on Base
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: chat
+    description: Chat with Bunny
+  - name: memory
+    description: Bunny markdown memory
+  - name: models
+    description: LLM model selection
+  - name: base-mcp
+    description: Base MCP (mcp.base.org) connection and tools
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /chat:
+    post:
+      operationId: sendChat
+      tags: [chat]
+      summary: Send a message to Bunny and get a response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Bunny's reply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+  /chats:
+    get:
+      operationId: listChats
+      tags: [chat]
+      summary: List saved chat sessions (newest first)
+      responses:
+        "200":
+          description: List of chat summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatSummary"
+    post:
+      operationId: createChat
+      tags: [chat]
+      summary: Create a new empty chat session
+      responses:
+        "200":
+          description: New session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+  /chats/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getChat
+      tags: [chat]
+      summary: Get a chat session by id
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+    put:
+      operationId: saveChat
+      tags: [chat]
+      summary: Overwrite a chat session's messages and title
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatSessionInput"
+      responses:
+        "200":
+          description: Saved session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+    delete:
+      operationId: deleteChat
+      tags: [chat]
+      summary: Delete a chat session
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  /memory:
+    get:
+      operationId: getMemory
+      tags: [memory]
+      summary: Read bunny memory
+      responses:
+        "200":
+          description: Memory markdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryFile"
+    put:
+      operationId: updateMemory
+      tags: [memory]
+      summary: Overwrite bunny memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryFile"
+      responses:
+        "200":
+          description: Saved memory markdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryFile"
+  /models:
+    get:
+      operationId: listModels
+      tags: [models]
+      summary: List available OpenRouter models, free first
+      responses:
+        "200":
+          description: Model list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LlmModel"
+  /settings/model:
+    get:
+      operationId: getCurrentModel
+      tags: [models]
+      summary: Get the currently selected model id
+      responses:
+        "200":
+          description: Current model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentModel"
+    post:
+      operationId: setCurrentModel
+      tags: [models]
+      summary: Set the current model id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelSelection"
+      responses:
+        "200":
+          description: New current model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentModel"
+  /settings/api-key:
+    get:
+      operationId: getApiKeyStatus
+      tags: [models]
+      summary: Get the OpenRouter API key configuration status
+      responses:
+        "200":
+          description: API key status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+    post:
+      operationId: setApiKey
+      tags: [models]
+      summary: Set the OpenRouter API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "200":
+          description: New status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+    delete:
+      operationId: clearApiKey
+      tags: [models]
+      summary: Clear the user-provided OpenRouter API key (falls back to env)
+      responses:
+        "200":
+          description: New status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+  /settings/moralis-key:
+    get:
+      operationId: getMoralisKeyStatus
+      tags: [models]
+      summary: Get the Moralis API key configuration status
+      responses:
+        "200":
+          description: Moralis key status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+    post:
+      operationId: setMoralisKey
+      tags: [models]
+      summary: Set the Moralis API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "200":
+          description: New status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+    delete:
+      operationId: clearMoralisKey
+      tags: [models]
+      summary: Clear the user-provided Moralis API key (falls back to env)
+      responses:
+        "200":
+          description: New status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+  /settings/cmc-key:
+    get:
+      operationId: getCmcKeyStatus
+      tags: [models]
+      summary: Get the CoinMarketCap API key configuration status
+      responses:
+        "200":
+          description: CoinMarketCap key status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+    post:
+      operationId: setCmcKey
+      tags: [models]
+      summary: Set the CoinMarketCap API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "200":
+          description: New status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+    delete:
+      operationId: clearCmcKey
+      tags: [models]
+      summary: Clear the user-provided CoinMarketCap API key (falls back to env)
+      responses:
+        "200":
+          description: New status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyStatus"
+  /base-mcp/call:
+    post:
+      operationId: callBaseMcpTool
+      tags: [base-mcp]
+      summary: Call an allow-listed Base MCP tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpCallBody"
+      responses:
+        "200":
+          description: Tool result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpCallResult"
+  /base-mcp/status:
+    get:
+      operationId: getBaseMcpStatus
+      tags: [base-mcp]
+      summary: Get Base MCP connection status and tool list
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseMcpStatus"
+  /base-mcp/auth-url:
+    post:
+      operationId: startBaseMcpAuth
+      tags: [base-mcp]
+      summary: Begin OAuth flow and return the authorization URL
+      responses:
+        "200":
+          description: Auth URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseMcpAuthUrl"
+  /base-mcp/disconnect:
+    post:
+      operationId: disconnectBaseMcp
+      tags: [base-mcp]
+      summary: Disconnect Base MCP and clear stored tokens
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    ChatInput:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+        history:
+          type: array
+          description: Prior conversation turns to provide context. Most recent last.
+          items:
+            $ref: "#/components/schemas/ChatTurn"
+    ChatTurn:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+    ChatSummary:
+      type: object
+      required: [id, title, updatedAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        updatedAt:
+          type: string
+    ChatSession:
+      type: object
+      required: [id, title, createdAt, updatedAt, messages]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatStoredMessage"
+    ChatSessionInput:
+      type: object
+      required: [messages]
+      properties:
+        title:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatStoredMessage"
+    ChatStoredMessage:
+      type: object
+      required: [id, role, text, timestamp]
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [user, bunny]
+        text:
+          type: string
+        timestamp:
+          type: string
+        tools:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ChatResponse:
+      type: object
+      required: [response, model]
+      properties:
+        response:
+          type: string
+        model:
+          type: string
+    MemoryFile:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+    LlmModel:
+      type: object
+      required: [id, name, price_input, free]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price_input:
+          type: number
+        free:
+          type: boolean
+    CurrentModel:
+      type: object
+      required: [model]
+      properties:
+        model:
+          type: string
+    ModelSelection:
+      type: object
+      required: [model]
+      properties:
+        model:
+          type: string
+          minLength: 1
+    BaseMcpStatus:
+      type: object
+      required: [connected, toolCount, tools]
+      properties:
+        connected:
+          type: boolean
+        toolCount:
+          type: integer
+        tools:
+          type: array
+          items:
+            type: string
+    BaseMcpAuthUrl:
+      type: object
+      required: [authUrl]
+      properties:
+        authUrl:
+          type: string
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+    ApiKeyStatus:
+      type: object
+      required: [configured, userProvided, masked]
+      properties:
+        configured:
+          type: boolean
+        userProvided:
+          type: boolean
+        masked:
+          type: string
+    McpCallBody:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        args:
+          type: object
+          additionalProperties: true
+    McpCallResult:
+      type: object
+      required: [content, isError]
+      properties:
+        content:
+          type: string
+        isError:
+          type: boolean
+        parsed:
+          nullable: true
+    ApiKeyInput:
+      type: object
+      required: [apiKey]
+      properties:
+        apiKey:
+          type: string
+          minLength: 8
