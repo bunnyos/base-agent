@@ -7,13 +7,21 @@
   </picture>
 </h1>
 
+<p align="center">
+  <a href="https://bunnyos.ai"><img alt="Website" src="https://img.shields.io/website?url=https%3A%2F%2Fbunnyos.ai&up_message=online&down_message=offline&logoColor=fff"></a>
+  <a href="https://github.com/bunnyos/base-agent"><img alt="GitHub Repo Stars" src="https://img.shields.io/github/stars/bunnyos/base-agent?style=flat&logo=github&color=8957e5&link=https%3A%2F%2Fgithub.com%bunnyos%2Fbase-agent"></a>
+  <a href="https://discord.gg/uR4467YW8e"><img alt="Discord" src="https://img.shields.io/discord/1440527601465692194?logo=discord&logoColor=fff&label=discord&color=%237289da"></a>
+  <a href="https://github.com/bunnyos/base-agent/graphs/contributors" ><img src="https://img.shields.io/github/contributors-anon/bunnyos/base-agent?color=00589B&logo=github"/></a>
+</p>
+
 **The first open-source [@base](https://base.org) agent.**
 *Built on the Base stack. Launched 29 May 2026.*
 
-<img alt="BunnyOS screenshot" src="assets/screenshot.png" width="800">
+<img alt="BunnyOS screenshot" src="assets/screenshot.jpeg" width="800">
 
 </div>
 
+<br>
 
 BunnyOS is an open-source AI agent for the Base ecosystem, and the first open-source project built on top of [Base MCP](https://mcp.base.org).
 
@@ -92,8 +100,8 @@ BunnyOS speaks MCP natively and ships a first-party tool library on top. Each so
 Requires **node 24**, **pnpm** and **postgres 18**.
 
 ```bash
-git clone https://github.com/BunnyOS/terminal
-cd terminal
+git clone https://github.com/bunnyos/base-agent
+cd base-agent
 pnpm install
 
 cp .env.example .env
