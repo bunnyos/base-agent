@@ -1,4 +1,4 @@
-import { db, actionsTable, type ActionRow } from "@workspace/db";
+import { db, actionsTable, type ActionRow, type TokenRef } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { getCurrentUserId } from "./user";
 
@@ -19,6 +19,8 @@ import { getCurrentUserId } from "./user";
 export type ActionKind = "alert" | "recommendation";
 export type ActionStatus = "pending" | "executed" | "dismissed";
 
+export type { TokenRef };
+
 export interface BunnyAction {
   id: string;
   kind: ActionKind;
@@ -27,6 +29,7 @@ export interface BunnyAction {
   source: string;
   push: boolean;
   executeInstructions: string;
+  tokens: TokenRef[];
   createdAt: string;
   status: ActionStatus;
 }
@@ -45,6 +48,7 @@ function rowToAction(r: ActionRow): BunnyAction {
     source: r.source,
     push: r.push,
     executeInstructions: r.suggestedPrompt,
+    tokens: Array.isArray(r.tokens) ? r.tokens : [],
     createdAt: r.createdAt.toISOString(),
     status: r.status as ActionStatus,
   };
@@ -57,6 +61,26 @@ export async function listActions(): Promise<BunnyAction[]> {
     .from(actionsTable)
     .where(eq(actionsTable.userId, userId))
     .orderBy(desc(actionsTable.createdAt));
+  return rows.map(rowToAction);
+}
+
+// The most-recent N actions emitted by a single source (e.g. one action's
+// `action:<id>` feed), newest first, regardless of status. Used to feed an
+// action runner its own recent history so the agent can avoid re-posting the
+// same/similar findings on every run.
+export async function listRecentActionsBySource(
+  source: string,
+  limit = 10,
+): Promise<BunnyAction[]> {
+  const userId = getCurrentUserId();
+  const rows = await db
+    .select()
+    .from(actionsTable)
+    .where(
+      and(eq(actionsTable.userId, userId), eq(actionsTable.source, source)),
+    )
+    .orderBy(desc(actionsTable.createdAt))
+    .limit(limit);
   return rows.map(rowToAction);
 }
 
@@ -88,12 +112,33 @@ export function setActionStatus(
   });
 }
 
+// Hide every currently-pending row for the user in one shot (the "hide all"
+// inbox button). Rows move to "dismissed" and stay in history. Returns the
+// number of rows hidden.
+export function dismissAllPending(): Promise<number> {
+  return withMutation(async () => {
+    const userId = getCurrentUserId();
+    const rows = await db
+      .update(actionsTable)
+      .set({ status: "dismissed" })
+      .where(
+        and(
+          eq(actionsTable.userId, userId),
+          eq(actionsTable.status, "pending"),
+        ),
+      )
+      .returning({ id: actionsTable.id });
+    return rows.length;
+  });
+}
+
 export interface ActionDraft {
   kind: ActionKind;
   title: string;
   description: string;
   source: string;
   executeInstructions?: string;
+  tokens?: TokenRef[];
 }
 
 // Insert one action. De-duplicates against existing pending rows for the
@@ -132,6 +177,7 @@ export function insertAction(draft: ActionDraft): Promise<BunnyAction | null> {
           draft.kind === "recommendation"
             ? draft.executeInstructions || draft.title
             : draft.executeInstructions ?? "",
+        tokens: draft.tokens ?? [],
         status: "pending",
       })
       .returning();

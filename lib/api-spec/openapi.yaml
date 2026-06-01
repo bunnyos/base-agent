@@ -276,22 +276,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiKeyStatus"
-  /settings/cmc-key:
+  /settings/coingecko-key:
     get:
-      operationId: getCmcKeyStatus
+      operationId: getCoingeckoKeyStatus
       tags: [models]
-      summary: Get the CoinMarketCap API key configuration status
+      summary: Get the CoinGecko API key configuration status
       responses:
         "200":
-          description: CoinMarketCap key status
+          description: CoinGecko key status
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiKeyStatus"
     post:
-      operationId: setCmcKey
+      operationId: setCoingeckoKey
       tags: [models]
-      summary: Set the CoinMarketCap API key
+      summary: Set the CoinGecko API key
       requestBody:
         required: true
         content:
@@ -306,9 +306,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiKeyStatus"
     delete:
-      operationId: clearCmcKey
+      operationId: clearCoingeckoKey
       tags: [models]
-      summary: Clear the user-provided CoinMarketCap API key (falls back to env)
+      summary: Clear the user-provided CoinGecko API key (falls back to env)
       responses:
         "200":
           description: New status

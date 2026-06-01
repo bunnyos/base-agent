@@ -4,10 +4,10 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-// NEON_DATABASE_URL wins when both are set so that on hosting platforms which
-// auto-inject an unrelated DATABASE_URL (pointing at a built-in Postgres) the
-// intended Neon connection doesn't get shadowed. In Docker / standalone
-// deploys only DATABASE_URL needs to be set.
+// NEON_DATABASE_URL wins when both are set so a hosted dev environment (where the
+// platform auto-injects an unrelated DATABASE_URL pointing at its built-in
+// Postgres) doesn't get shadowed. In Docker / standalone deploys only
+// DATABASE_URL needs to be set.
 const connectionString =
   process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
 

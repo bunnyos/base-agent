@@ -15,7 +15,7 @@ export interface RequestContext {
   origin?: string;
 }
 
-export const requestAls = new AsyncLocalStorage<RequestContext>();
+const requestAls = new AsyncLocalStorage<RequestContext>();
 
 export function runWithUser<T>(userId: string, fn: () => T | Promise<T>): T | Promise<T> {
   return requestAls.run({ userId }, fn);

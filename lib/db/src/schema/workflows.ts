@@ -27,6 +27,9 @@ export const workflowsTable = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     name: text("name").notNull().default(""),
+    // "native" = shipped in code (the starter pack, seeded per user, definition
+    // owned by code). "custom" = user-authored, stored only in this table.
+    source: text("source").notNull().default("custom"),
     enabled: boolean("enabled").notNull().default(true),
     // Min cadence enforced by the scheduler. The scheduler ticks once per
     // minute, so values below 60_000 are effectively rounded up.

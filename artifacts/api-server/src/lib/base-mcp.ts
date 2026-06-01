@@ -282,7 +282,7 @@ async function tryConnect(): Promise<
 
   const transport = makeTransport(provider);
   const client = new Client(
-    { name: "bunny-defi-companion", version: "0.1.0" },
+    { name: "bunny-defi-companion", version: "0.1.1" },
     { capabilities: {} },
   );
 
@@ -364,7 +364,7 @@ export async function finishAuthFlow(code: string, state: string): Promise<void>
   clearConnection(userId);
 
   const client = new Client(
-    { name: "bunny-defi-companion", version: "0.1.0" },
+    { name: "bunny-defi-companion", version: "0.1.1" },
     { capabilities: {} },
   );
   const newTransport = makeTransport(provider);

@@ -97,6 +97,7 @@ function downloadAction(action: Action): void {
 interface Action {
   id: string;
   name: string;
+  source: "native" | "custom";
   enabled: boolean;
   intervalMs: number;
   instructions: string;
@@ -164,6 +165,15 @@ export function ActionsBuilderView() {
     [data, editingId],
   );
 
+  // Native (starter pack) listed first, then the user's own actions.
+  const groupedActions = useMemo(() => {
+    const all = data?.workflows ?? [];
+    return [
+      { source: "native" as const, items: all.filter((w) => w.source === "native") },
+      { source: "custom" as const, items: all.filter((w) => w.source !== "native") },
+    ];
+  }, [data]);
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
 
@@ -217,6 +227,7 @@ export function ActionsBuilderView() {
     const optimistic: Action = {
       id: tempId,
       name: "new action",
+      source: "custom",
       enabled: false,
       intervalMs: 600_000,
       instructions: "",
@@ -338,41 +349,59 @@ export function ActionsBuilderView() {
               to create one.
             </div>
           )}
-          {data?.workflows.map((w) => (
-            <button
-              key={w.id}
-              onClick={() => setEditingId(w.id)}
-              className={`w-full px-4 py-3 border-b border-border/30 text-left hover:bg-foreground/5 ${
-                editingId === w.id ? "bg-foreground/10" : ""
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-mono ${
-                    w.enabled ? "text-green" : "text-muted-foreground/50"
-                  }`}
-                >
-                  ●
-                </span>
-                <span className="font-mono text-xs text-foreground truncate flex-1">
-                  {w.name || "untitled"}
-                </span>
+          {groupedActions.map(({ source, items }) =>
+            items.length === 0 ? null : (
+              <div key={source}>
+                <div className="px-4 pt-3 pb-1 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+                  {source === "native" ? "Native Actions" : "Custom Actions"}
+                </div>
+                {items.map((w) => (
+                  <button
+                    key={w.id}
+                    onClick={() => setEditingId(w.id)}
+                    className={`w-full px-4 py-3 border-b border-border/30 text-left hover:bg-foreground/5 ${
+                      editingId === w.id ? "bg-foreground/10" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] font-mono ${
+                          w.enabled ? "text-green" : "text-muted-foreground/50"
+                        }`}
+                      >
+                        ●
+                      </span>
+                      <span className="font-mono text-xs text-foreground truncate flex-1">
+                        {w.name || "untitled"}
+                      </span>
+                      <span
+                        className={`shrink-0 font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                          w.source === "native"
+                            ? "border-foreground/20 text-muted-foreground"
+                            : "border-border/40 text-muted-foreground/70"
+                        }`}
+                      >
+                        {w.source}
+                      </span>
+                    </div>
+                    <div className="mt-1 font-mono text-[10px] text-muted-foreground flex items-center gap-2">
+                      <span>every {formatInterval(w.intervalMs)}</span>
+                      <span>·</span>
+                      <span>
+                        {w.toolAllowlist === null
+                          ? "all tools"
+                          : `${w.toolAllowlist.length} tools`}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
+                      last run: {relativeTime(w.lastRunAt)}
+                      {w.lastRunStatus ? ` (${w.lastRunStatus})` : ""}
+                    </div>
+                  </button>
+                ))}
               </div>
-              <div className="mt-1 font-mono text-[10px] text-muted-foreground flex items-center gap-2">
-                <span>every {formatInterval(w.intervalMs)}</span>
-                <span>·</span>
-                <span>
-                  {w.toolAllowlist === null
-                    ? "all tools"
-                    : `${w.toolAllowlist.length} tools`}
-                </span>
-              </div>
-              <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
-                last run: {relativeTime(w.lastRunAt)}
-                {w.lastRunStatus ? ` (${w.lastRunStatus})` : ""}
-              </div>
-            </button>
-          ))}
+            ),
+          )}
         </div>
       </div>
       <div
@@ -387,6 +416,10 @@ export function ActionsBuilderView() {
             tools={data?.tools ?? []}
             allowedIntervalsMs={data?.allowedIntervalsMs ?? [600_000]}
             onSaved={refresh}
+            onForked={(id) => {
+              void refresh();
+              setEditingId(id);
+            }}
             onBack={() => setEditingId(null)}
             onDeleted={() => {
               setEditingId(null);
@@ -422,6 +455,7 @@ function ActionEditor({
   tools,
   allowedIntervalsMs,
   onSaved,
+  onForked,
   onDeleted,
   onBack,
 }: {
@@ -429,10 +463,12 @@ function ActionEditor({
   tools: ToolEntry[];
   allowedIntervalsMs: number[];
   onSaved: () => void;
+  onForked: (id: string) => void;
   onDeleted: () => void;
   onBack: () => void;
 }) {
   const { toast } = useToast();
+  const isNative = action.source === "native";
   const [name, setName] = useState(action.name);
   const [enabled, setEnabled] = useState(action.enabled);
   const [intervalMs, setIntervalMs] = useState(action.intervalMs);
@@ -490,9 +526,71 @@ function ActionEditor({
     setAllowSet(next);
   };
 
+  // Persist the enabled toggle in place. Native actions are otherwise
+  // code-owned, so toggling is the only edit that mutates them directly.
+  const setEnabledNow = async (next: boolean) => {
+    setEnabled(next);
+    try {
+      const r = await fetch(`/api/workflows/${action.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (!r.ok) {
+        setEnabled(!next);
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        toast({
+          title: "couldn't update",
+          description: j.error ?? `${r.status}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      onSaved();
+    } catch (err) {
+      setEnabled(!next);
+      toast({
+        title: "couldn't update",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     try {
+      // Native actions can't be edited in place — editing one forks it into a
+      // new custom copy and leaves the native intact.
+      if (isNative) {
+        const r = await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: name.trim() ? `${name} (custom)` : "custom action",
+            enabled,
+            intervalMs,
+            instructions,
+            toolAllowlist: useAll ? null : [...allowSet!],
+          }),
+        });
+        if (!r.ok) {
+          const j = (await r.json().catch(() => ({}))) as { error?: string };
+          toast({
+            title: "save failed",
+            description: j.error ?? `${r.status}`,
+            variant: "destructive",
+          });
+          return;
+        }
+        const j = (await r.json()) as { workflow: Action };
+        toast({
+          title: "saved as custom copy",
+          description: "the starter action is unchanged",
+        });
+        onForked(j.workflow.id);
+        return;
+      }
       const r = await fetch(`/api/workflows/${action.id}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -633,12 +731,23 @@ function ActionEditor({
           </Select>
         </div>
         <div className="flex items-center gap-2 pb-1">
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
+          <Switch
+            checked={enabled}
+            onCheckedChange={isNative ? (v) => void setEnabledNow(v) : setEnabled}
+          />
           <span className="font-mono text-xs text-muted-foreground">
             {enabled ? "enabled" : "paused"}
           </span>
         </div>
       </div>
+
+      {isNative && (
+        <div className="font-mono text-[10px] text-muted-foreground bg-foreground/5 border border-border/50 rounded px-3 py-2 leading-relaxed">
+          this is a starter action. toggle it on or off anytime. editing it saves
+          a <span className="text-foreground">custom copy</span>, leaving the
+          original intact. it can't be deleted.
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -728,7 +837,7 @@ function ActionEditor({
       <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
         <Button onClick={save} disabled={saving} className="font-mono text-xs">
           {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-          save
+          {isNative ? "save as custom copy" : "save"}
         </Button>
         <Button
           variant="outline"
@@ -754,19 +863,21 @@ function ActionEditor({
           <Upload className="h-3 w-3 mr-1" />
           export
         </Button>
-        <Button
-          variant="ghost"
-          onClick={remove}
-          disabled={deleting}
-          className="font-mono text-xs text-destructive hover:text-destructive"
-        >
-          {deleting ? (
-            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          ) : (
-            <Trash2 className="h-3 w-3 mr-1" />
-          )}
-          delete
-        </Button>
+        {!isNative && (
+          <Button
+            variant="ghost"
+            onClick={remove}
+            disabled={deleting}
+            className="font-mono text-xs text-destructive hover:text-destructive"
+          >
+            {deleting ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : (
+              <Trash2 className="h-3 w-3 mr-1" />
+            )}
+            delete
+          </Button>
+        )}
       </div>
       {action.lastRunError && (
         <div className="font-mono text-[10px] text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2">

@@ -9,7 +9,7 @@ import {
   type WorkflowDraft,
 } from "../lib/workflows";
 import { listMoralisTools } from "../lib/moralis";
-import { listCmcTools } from "../lib/cmc";
+import { listCoinGeckoTools } from "../lib/coingecko";
 import { listBankrTools } from "../lib/bankr";
 import { listDefiLlamaTools } from "../lib/defillama";
 import { listTools as listBaseMcpTools } from "../lib/base-mcp";
@@ -43,9 +43,9 @@ async function buildToolCatalog(): Promise<ToolCatalogEntry[]> {
       out.push({ protocol: "moralis", name: t.name, description: t.description });
     }
   }
-  if (isProtocolEnabled("cmc")) {
-    for (const t of listCmcTools()) {
-      out.push({ protocol: "cmc", name: t.name, description: t.description });
+  if (isProtocolEnabled("coingecko")) {
+    for (const t of listCoinGeckoTools()) {
+      out.push({ protocol: "coingecko", name: t.name, description: t.description });
     }
   }
   if (isProtocolEnabled("bankr")) {
@@ -162,9 +162,15 @@ router.delete("/workflows/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "missing id" });
     return;
   }
-  const ok = await deleteWorkflow(id);
-  if (!ok) {
+  const result = await deleteWorkflow(id);
+  if (result === "not_found") {
     res.status(404).json({ error: "not found" });
+    return;
+  }
+  if (result === "native") {
+    res.status(403).json({
+      error: "native actions can't be deleted. disable it instead",
+    });
     return;
   }
   res.json({ ok: true });

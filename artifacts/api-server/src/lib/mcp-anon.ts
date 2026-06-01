@@ -49,7 +49,7 @@ async function connect(entry: AnonMcpEntry): Promise<void> {
   if (entry.client) return;
   const transport = new StreamableHTTPClientTransport(new URL(entry.config.url));
   const client = new Client(
-    { name: "bunny-defi-companion", version: "0.1.0" },
+    { name: "bunny-defi-companion", version: "0.1.1" },
     { capabilities: {} },
   );
   await client.connect(transport);
@@ -68,7 +68,7 @@ async function connect(entry: AnonMcpEntry): Promise<void> {
   );
 }
 
-export async function connectAnonMcp(id: string): Promise<void> {
+async function connectAnonMcp(id: string): Promise<void> {
   const entry = registry.get(id);
   if (!entry) throw new Error(`Unknown anon MCP: ${id}`);
   try {

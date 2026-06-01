@@ -38,6 +38,15 @@ export function TopBar() {
       </Link>
 
       <div className="flex items-center gap-2">
+        <a
+          href="https://app.virtuals.io/virtuals/80805"
+          target="_blank"
+          rel="noreferrer"
+          className="px-2 py-1 sm:px-3 sm:py-2 border border-border/70 text-foreground hover:bg-foreground/5 rounded font-sans text-xs font-medium transition-colors inline-flex items-center justify-center gap-1.5"
+          data-testid="link-support-virtuals-header"
+        >
+          support on virtuals
+        </a>
         {auth.authenticated && auth.walletAddress && (
           <button
             onClick={() => void auth.logout()}

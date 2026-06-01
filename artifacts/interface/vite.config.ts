@@ -3,6 +3,12 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
+// Local dev: load the repo-root .env so PORT/BASE_PATH are available without
+// exporting them. No-op in production where the host injects env.
+try {
+  process.loadEnvFile(path.resolve(import.meta.dirname, "..", "..", ".env"));
+} catch {}
+
 const rawPort = process.env.PORT ?? "5173";
 
 const port = Number(rawPort);
@@ -21,7 +27,10 @@ if (!basePath) {
 
 export default defineConfig({
   base: basePath,
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
@@ -39,8 +48,7 @@ export default defineConfig({
     strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
-    // Local-dev only: forward /api to the API server on :3000 (Replit does this
-    // via its path router; the api-server defaults to :3000).
+    // Local-dev only: forward /api to the API server on :3000.
     proxy: {
       "/api": "http://localhost:3000",
     },

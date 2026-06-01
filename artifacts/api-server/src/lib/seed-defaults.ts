@@ -37,8 +37,8 @@ const DEFAULTS: WorkflowDraft[] = [
     enabled: true,
     intervalMs: HOUR,
     instructions:
-      "call cmc_quotes_latest for ETH. if the 24h percent change is at least +5% or at most -5%, emit_alert with title 'ETH <up|down> X% (24h)' and a one-line summary with current price and the move. severity 'warn' if |move| >= 10%, else 'info'. if the move is smaller, stop silently.",
-    toolAllowlist: ["cmc_quotes_latest"],
+      "call coingecko_price with ids=['ethereum']. if the 24h percent change is at least +5% or at most -5%, emit_alert with title 'ETH <up|down> X% (24h)' and a one-line summary with current price and the move. severity 'warn' if |move| >= 10%, else 'info'. if the move is smaller, stop silently.",
+    toolAllowlist: ["coingecko_price"],
   },
   {
     name: "portfolio daily brief",
@@ -53,8 +53,8 @@ const DEFAULTS: WorkflowDraft[] = [
     enabled: true,
     intervalMs: HOUR,
     instructions:
-      "call cmc_quotes_latest for USDC, USDT, and DAI in one batch. for any stablecoin whose price deviates more than 0.5% from $1.00 (i.e. < $0.995 or > $1.005), emit_alert separately with title '<symbol> depeg — $<price>' and a one-line summary noting the deviation and that holders should consider reducing exposure if it widens. severity 'warn' for >=0.5%, 'critical' for >=2%. if all three are within band, stop silently.",
-    toolAllowlist: ["cmc_quotes_latest"],
+      "call coingecko_price with ids=['usd-coin','tether','dai'] in one batch. for any stablecoin whose price deviates more than 0.5% from $1.00 (i.e. < $0.995 or > $1.005), emit_alert separately with title '<symbol> depeg — $<price>' and a one-line summary noting the deviation and that holders should consider reducing exposure if it widens. severity 'warn' for >=0.5%, 'critical' for >=2%. if all three are within band, stop silently.",
+    toolAllowlist: ["coingecko_price"],
   },
 ];
 

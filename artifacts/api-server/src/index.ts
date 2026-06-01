@@ -5,6 +5,7 @@ import { startWorkflowScheduler } from "./lib/workflows";
 import { ensureLocalUser, LOCAL_USER_ID } from "./lib/user";
 import { hydrateUserSettings } from "./lib/settings";
 import { runWithUser } from "./lib/request-context";
+import { migrateLegacyToolNames } from "./lib/migrate-tool-names";
 import { logger } from "./lib/logger";
 
 registerAnonMcp({
@@ -23,6 +24,7 @@ if (Number.isNaN(port) || port <= 0) {
 async function start(): Promise<void> {
   await ensureLocalUser();
   await hydrateUserSettings(LOCAL_USER_ID);
+  await migrateLegacyToolNames();
 
   app.listen(port, (err) => {
     if (err) {

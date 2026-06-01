@@ -13,6 +13,7 @@ import { getActiveUserId, runWithUser } from "../lib/request-context";
 import { upsertUserByWallet } from "../lib/user";
 import { hydrateUserSettings, setBaseMcpSession } from "../lib/settings";
 import { seedDefaultActionsIfEmpty } from "../lib/seed-defaults";
+import { seedNativeWorkflows } from "../lib/workflows";
 import {
   buildSetCookie,
   buildClearAnonCookie,
@@ -180,6 +181,9 @@ router.get("/base-mcp/callback", async (req, res): Promise<void> => {
           } catch (err) {
             req.log.warn({ err, userId }, "seed default actions failed");
           }
+          // Seed the native starter pack at sign-in so it auto-runs on the
+          // scheduler even before the user loads the builder. Idempotent.
+          await seedNativeWorkflows(userId);
         });
       });
       const sessionCookie = signSession(userId, lower);

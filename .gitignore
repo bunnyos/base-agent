@@ -53,6 +53,7 @@ Thumbs.db
 .cache/
 .local/
 .config/
+.claude/settings.local.json
 
 # Legacy on-disk agent state (migrated to Postgres). Directory must never be
 # tracked again — historical base-mcp.json held OAuth secrets.

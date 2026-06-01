@@ -4,7 +4,7 @@ import {
   userProtocolsTable,
   type UserSettings,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { getCurrentUserId } from "./user";
 import { encrypt, tryDecrypt } from "./crypto";
@@ -17,7 +17,7 @@ import { encrypt, tryDecrypt } from "./crypto";
 interface CachedSettings {
   openrouterApiKey: string | null;
   moralisApiKey: string | null;
-  cmcApiKey: string | null;
+  coingeckoApiKey: string | null;
   model: string | null;
   memoryMd: string;
   baseMcpSession: unknown;
@@ -26,7 +26,7 @@ interface CachedSettings {
 const DEFAULT_CACHE: CachedSettings = {
   openrouterApiKey: null,
   moralisApiKey: null,
-  cmcApiKey: null,
+  coingeckoApiKey: null,
   model: null,
   memoryMd: "",
   baseMcpSession: null,
@@ -88,7 +88,7 @@ function rowToCache(row: UserSettings): CachedSettings {
   return {
     openrouterApiKey: sanitizeStoredKey(tryDecrypt(row.openrouterApiKey)),
     moralisApiKey: sanitizeStoredKey(tryDecrypt(row.moralisApiKey)),
-    cmcApiKey: sanitizeStoredKey(tryDecrypt(row.cmcApiKey)),
+    coingeckoApiKey: sanitizeStoredKey(tryDecrypt(row.coingeckoApiKey)),
     model: row.model,
     memoryMd: row.memoryMd,
     baseMcpSession: decryptJsonbSession(row.baseMcpSession),
@@ -202,28 +202,25 @@ export function isUserMoralisKey(): boolean {
   return Boolean(getCache().moralisApiKey);
 }
 
-// ---------- CoinMarketCap API key ----------
+// ---------- CoinGecko API key ----------
 
-export function getCmcApiKey(): string | undefined {
-  return (
-    getCache().cmcApiKey ??
-    undefined
-  );
+export function getCoingeckoApiKey(): string | undefined {
+  return getCache().coingeckoApiKey ?? undefined;
 }
 
-export async function setCmcApiKey(key: string): Promise<void> {
+export async function setCoingeckoApiKey(key: string): Promise<void> {
   const clean = sanitizeApiKey(key);
-  await patch({ cmcApiKey: encrypt(clean) });
-  getCache().cmcApiKey = clean;
+  await patch({ coingeckoApiKey: encrypt(clean) });
+  getCache().coingeckoApiKey = clean;
 }
 
-export async function clearCmcApiKey(): Promise<void> {
-  await patch({ cmcApiKey: null });
-  getCache().cmcApiKey = null;
+export async function clearCoingeckoApiKey(): Promise<void> {
+  await patch({ coingeckoApiKey: null });
+  getCache().coingeckoApiKey = null;
 }
 
-export function isUserCmcKey(): boolean {
-  return Boolean(getCache().cmcApiKey);
+export function isUserCoingeckoKey(): boolean {
+  return Boolean(getCache().coingeckoApiKey);
 }
 
 // ---------- Model ----------
@@ -240,9 +237,9 @@ export async function setStoredModel(model: string): Promise<void> {
 // ---------- Protocols ----------
 
 // Protocols the user cannot disable. `base` is the wallet itself (no
-// point running bunny without it). `cmc` is the price oracle every
+// point running bunny without it). `coingecko` is the price oracle every
 // other tool implicitly depends on for USD valuation and discovery.
-const REQUIRED_PROTOCOLS = new Set(["base", "cmc"]);
+const REQUIRED_PROTOCOLS = new Set(["base", "coingecko"]);
 
 export function isProtocolEnabled(id: string): boolean {
   if (REQUIRED_PROTOCOLS.has(id)) return true;
@@ -293,17 +290,4 @@ export async function setBaseMcpSession(value: unknown): Promise<void> {
 export function maskKey(key: string): string {
   if (key.length <= 8) return "•".repeat(key.length);
   return `${key.slice(0, 4)}…${key.slice(-4)}`;
-}
-
-export async function deleteProtocolSetting(id: string): Promise<void> {
-  const userId = getCurrentUserId();
-  await db
-    .delete(userProtocolsTable)
-    .where(
-      and(
-        eq(userProtocolsTable.userId, userId),
-        eq(userProtocolsTable.protocolId, id),
-      ),
-    );
-  getProtoCache().delete(id);
 }

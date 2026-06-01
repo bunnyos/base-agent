@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { getStatus as getBaseMcpStatus, listTools as listBaseMcpTools } from "../lib/base-mcp";
 import { listAnonMcpStatuses, getAnonMcpTools } from "../lib/mcp-anon";
 import { listMoralisTools, moralisStatus } from "../lib/moralis";
-import { listCmcTools, cmcStatus } from "../lib/cmc";
+import { listCoinGeckoTools, coinGeckoStatus } from "../lib/coingecko";
 import { listBankrTools, bankrStatus } from "../lib/bankr";
 import { listDefiLlamaTools, defiLlamaStatus } from "../lib/defillama";
 import { isProtocolEnabled, setProtocolEnabled } from "../lib/settings";
@@ -38,8 +38,8 @@ const PROTOCOL_DESCRIPTIONS: Record<string, string> = {
   base: "Base account MCP — your wallet on Base. Provides read access to balances/portfolio and the ability to construct send/swap/sign transactions for approval in Base account.",
   moralis:
     "Moralis Web3 Data API — native bunnyOS implementation. Multi-chain EVM read tools: wallet history, token balances + USD prices, NFTs, DeFi positions, token metadata + holders + prices. Requires a Moralis API key (set in Configure → llm).",
-  cmc:
-    "CoinMarketCap price + market data — native bunnyOS implementation. REQUIRED: bunnyOS needs a CMC key for token pricing, discovery, and global market context. Coin quotes by symbol/id/slug or contract address (defaults to Base), top market-cap listings, NEWLY LISTED coins (discover fresh tokens within hours), full metadata with trust/risk tags and cmc_rank, id/symbol map, global market snapshot, price conversion, and key/usage status. Free Basic tier (no card required, get one at coinmarketcap.com/api).",
+  coingecko:
+    "CoinGecko price + market data — native bunnyOS implementation. REQUIRED: bunnyOS needs a CoinGecko Demo key for token pricing, discovery, and global market context. CEX-grade endpoints: coin price by id, token price by contract address (defaults to Base), top market-cap listings (with category filters like base-ecosystem/meme-token), full coin metadata, search (resolve ticker → coin id), trending coins, and global market snapshot. On-chain endpoints (also require the demo key): live DEX token data and pool search — indexes brand-new launches fast, so it's the liquidity/price oracle for fresh tokens. Free Demo tier (no card required, ~30 req/min, get one at coingecko.com/en/api/pricing).",
   bankr:
     "Bankr token launches — native bunnyOS implementation. Single tool that returns the most recent (last ~50) token launches tracked by Bankr (https://bankr.bot). Public endpoint, no key required.",
   defillama:
@@ -51,7 +51,7 @@ router.get("/protocols", async (_req, res): Promise<void> => {
     const base = await getBaseMcpStatus();
     const anon = listAnonMcpStatuses();
     const moralis = moralisStatus();
-    const cmc = cmcStatus();
+    const coingecko = coinGeckoStatus();
     const bankr = bankrStatus();
     const protocols: ProtocolStatus[] = [
       {
@@ -76,13 +76,13 @@ router.get("/protocols", async (_req, res): Promise<void> => {
         via: "native",
       },
       {
-        id: "cmc",
-        label: "coinmarketcap",
-        kind: "prices / markets / new listings",
-        connected: cmc.connected,
-        toolCount: cmc.toolCount,
+        id: "coingecko",
+        label: "coingecko",
+        kind: "prices / markets / onchain dex",
+        connected: coingecko.connected,
+        toolCount: coingecko.toolCount,
         requiresAuth: true,
-        enabled: isProtocolEnabled("cmc"),
+        enabled: isProtocolEnabled("coingecko"),
         source: "api" as const,
         via: "native",
       },
@@ -170,15 +170,15 @@ router.get("/protocols/:id/tools", async (req, res): Promise<void> => {
       });
       return;
     }
-    if (id === "cmc") {
-      const tools = listCmcTools();
+    if (id === "coingecko") {
+      const tools = listCoinGeckoTools();
       res.json({
         id,
-        label: "coinmarketcap",
-        kind: "prices / markets / new listings",
+        label: "coingecko",
+        kind: "prices / markets / onchain dex",
         source: "api",
         via: "native",
-        description: PROTOCOL_DESCRIPTIONS["cmc"] ?? "",
+        description: PROTOCOL_DESCRIPTIONS["coingecko"] ?? "",
         tools: tools.map((t) => ({ name: t.name, description: t.description })),
       });
       return;

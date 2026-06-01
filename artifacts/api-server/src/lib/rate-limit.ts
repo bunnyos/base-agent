@@ -14,6 +14,8 @@ interface BucketSpec {
 const SPECS: Record<string, BucketSpec> = {
   chat: { capacity: 60, refillPerSec: 60 / 3600 }, // 60/hour
   scan: { capacity: 12, refillPerSec: 12 / 3600 }, // 12/hour
+  security: { capacity: 120, refillPerSec: 120 / 3600 }, // 120/hour
+  token: { capacity: 120, refillPerSec: 120 / 3600 }, // 120/hour — single-token metadata lookups (share links)
 };
 
 const buckets = new Map<string, Bucket>();

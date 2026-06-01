@@ -11,7 +11,8 @@ export type Tab = {
     | "chat"
     | "wallet"
     | "actions-builder"
-    | "actions-history";
+    | "actions-history"
+    | "tokens";
   payload?: { protocolId: string };
   // false → no close button in TabBar and closeTab is a no-op.
   // Defaults to true for backward compatibility; `home` is always non-closable
@@ -64,6 +65,12 @@ const ACTIONS_HISTORY_TAB: Tab = {
   kind: "actions-history",
   closable: false,
 };
+const TOKENS_TAB: Tab = {
+  id: "tokens",
+  title: "research",
+  kind: "tokens",
+  closable: false,
+};
 // Base MCP is the wallet — always-on and seeded on every terminal mount so
 // the user lands with their wallet tab already available. Closable so the
 // user can dismiss it if the bar gets crowded; re-opens on next sign-in.
@@ -82,6 +89,7 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     HOME_TAB,
     ACTIONS_BUILDER_TAB,
     ACTIONS_HISTORY_TAB,
+    TOKENS_TAB,
     SETTINGS_TAB,
     BASE_MCP_TAB,
   ]);

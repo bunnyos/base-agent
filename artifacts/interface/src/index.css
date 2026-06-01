@@ -150,11 +150,41 @@
   body,
   #root {
     height: 100%;
-    overflow: hidden;
     overscroll-behavior: none;
+  }
+
+  @media (min-width: 768px) {
+    html,
+    body,
+    #root {
+      overflow: hidden;
+    }
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* Minimalist, Apple-like scrollbars: thin, rounded, no track/black bar. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--foreground) / 0.18);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--foreground) / 0.32);
   }
 }

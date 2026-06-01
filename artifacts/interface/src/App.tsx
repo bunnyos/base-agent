@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Route, Switch as RouterSwitch, Redirect } from "wouter";
+import { Route, Switch as RouterSwitch, Redirect, useRoute } from "wouter";
 import { useGetApiKeyStatus } from "@workspace/api-client-react";
 import { TopBar } from "./components/TopBar";
 import { WalletPortfolioPanel } from "./components/WalletPortfolioPanel";
@@ -12,6 +12,7 @@ import { ProtocolTabView } from "./components/ProtocolTabView";
 import { ConfigureView } from "./components/ConfigureView";
 import { ActionsBuilderView } from "./components/ActionsBuilderView";
 import { ActionsHistoryView } from "./components/ActionsHistoryView";
+import { TokenExplorerView } from "./components/TokenExplorerView";
 import Landing from "./pages/Landing";
 import { useAuth } from "./hooks/useAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,6 +43,11 @@ function useIsMobile(): boolean {
 // legacy `home` tab is hidden in this mode. On desktop, all three live inside
 // the original HomeView 3-column layout and the mobile tabs are removed.
 const MOBILE_TAB_IDS = ["wallet", "actions", "chat"] as const;
+const MOBILE_TAB_TITLES: Record<string, string> = {
+  wallet: "wallet",
+  actions: "actions inbox",
+  chat: "chat",
+};
 
 function useMobilePaneTabs(isMobile: boolean): void {
   const { tabs, openTab, removeTab, setActive, activeId, reorderVisible } = useTabs();
@@ -50,7 +56,12 @@ function useMobilePaneTabs(isMobile: boolean): void {
       const hadAny = MOBILE_TAB_IDS.some((id) => tabs.some((t) => t.id === id));
       for (const id of MOBILE_TAB_IDS) {
         if (!tabs.some((t) => t.id === id)) {
-          openTab({ id, title: id, kind: id, closable: false });
+          openTab({
+            id,
+            title: MOBILE_TAB_TITLES[id] ?? id,
+            kind: id,
+            closable: false,
+          });
         }
       }
       // Pin wallet / actions / chat to the very front of the tab bar so the
@@ -144,6 +155,7 @@ function TabContent() {
   if (active.kind === "settings") return <ConfigureView />;
   if (active.kind === "actions-builder") return <ActionsBuilderView />;
   if (active.kind === "actions-history") return <ActionsHistoryView />;
+  if (active.kind === "tokens") return <TokenExplorerView />;
   if (active.kind === "protocol" && active.payload) {
     return <ProtocolTabView protocolId={active.payload.protocolId} />;
   }
@@ -171,6 +183,36 @@ function TabContent() {
   return <HomeView />;
 }
 
+// When the terminal is opened via a shareable report link
+// (/terminal/report/<address>), switch to the tokens tab once so the report
+// panel renders for that token. The tab content itself reads the address from
+// the route to focus the right token.
+function useReportDeepLink(): void {
+  const [match] = useRoute("/terminal/report/:address");
+  const { setActive } = useTabs();
+  const doneRef = useRef(false);
+  useEffect(() => {
+    if (match && !doneRef.current) {
+      doneRef.current = true;
+      setActive("tokens");
+    }
+  }, [match, setActive]);
+}
+
+function TerminalShell() {
+  useReportDeepLink();
+  return (
+    <div className="h-full w-full flex flex-col bg-background text-foreground overflow-hidden">
+      <TopBar />
+      <TabBar />
+      <div className="flex-1 min-h-0 flex w-full">
+        <TabContent />
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
 function TerminalApp() {
   const auth = useAuth();
   if (auth.loading) {
@@ -185,14 +227,7 @@ function TerminalApp() {
   }
   return (
     <TabsProvider>
-      <div className="h-full w-full flex flex-col bg-background text-foreground overflow-hidden">
-        <TopBar />
-        <TabBar />
-        <div className="flex-1 min-h-0 flex w-full">
-          <TabContent />
-        </div>
-        <Footer />
-      </div>
+      <TerminalShell />
     </TabsProvider>
   );
 }

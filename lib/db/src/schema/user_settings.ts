@@ -13,7 +13,7 @@ export const userSettingsTable = pgTable("user_settings", {
     .references(() => usersTable.id, { onDelete: "cascade" }),
   openrouterApiKey: text("openrouter_api_key"),
   moralisApiKey: text("moralis_api_key"),
-  cmcApiKey: text("cmc_api_key"),
+  coingeckoApiKey: text("coingecko_api_key"),
   model: text("model"),
   memoryMd: text("memory_md").notNull().default(""),
   baseMcpSession: jsonb("base_mcp_session"),

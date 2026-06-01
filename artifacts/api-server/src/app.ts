@@ -34,7 +34,7 @@ app.use(
 );
 app.use(
   cors({
-    // Reflect the request origin; credentials needed for the session cookie.
+    // Allow same-origin + cross-site preview domains; credentials needed for cookie.
     origin: true,
     credentials: true,
   }),

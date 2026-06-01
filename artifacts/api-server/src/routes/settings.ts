@@ -9,10 +9,10 @@ import {
   setMoralisApiKey,
   clearMoralisApiKey,
   isUserMoralisKey,
-  getCmcApiKey,
-  setCmcApiKey,
-  clearCmcApiKey,
-  isUserCmcKey,
+  getCoingeckoApiKey,
+  setCoingeckoApiKey,
+  clearCoingeckoApiKey,
+  isUserCoingeckoKey,
   maskKey,
 } from "../lib/settings";
 
@@ -74,32 +74,32 @@ router.delete("/settings/moralis-key", async (_req, res): Promise<void> => {
   res.json(moralisStatusPayload());
 });
 
-function cmcStatusPayload() {
-  const key = getCmcApiKey();
+function coingeckoStatusPayload() {
+  const key = getCoingeckoApiKey();
   return GetApiKeyStatusResponse.parse({
     configured: Boolean(key),
-    userProvided: isUserCmcKey(),
+    userProvided: isUserCoingeckoKey(),
     masked: key ? maskKey(key) : "",
   });
 }
 
-router.get("/settings/cmc-key", async (_req, res): Promise<void> => {
-  res.json(cmcStatusPayload());
+router.get("/settings/coingecko-key", async (_req, res): Promise<void> => {
+  res.json(coingeckoStatusPayload());
 });
 
-router.post("/settings/cmc-key", async (req, res): Promise<void> => {
+router.post("/settings/coingecko-key", async (req, res): Promise<void> => {
   const parsed = SetApiKeyBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  await setCmcApiKey(parsed.data.apiKey);
-  res.json(cmcStatusPayload());
+  await setCoingeckoApiKey(parsed.data.apiKey);
+  res.json(coingeckoStatusPayload());
 });
 
-router.delete("/settings/cmc-key", async (_req, res): Promise<void> => {
-  await clearCmcApiKey();
-  res.json(cmcStatusPayload());
+router.delete("/settings/coingecko-key", async (_req, res): Promise<void> => {
+  await clearCoingeckoApiKey();
+  res.json(coingeckoStatusPayload());
 });
 
 export default router;

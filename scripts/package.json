@@ -10,9 +10,5 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
-  },
-  "dependencies": {
-    "@types/pg": "^8.20.0",
-    "pg": "^8.20.0"
   }
 }

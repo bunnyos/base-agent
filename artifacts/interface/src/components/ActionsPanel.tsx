@@ -4,7 +4,17 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { playSound } from "@/lib/sound";
 import { useTabs } from "./TabsContext";
-const ACTIONS_BUILDER_TAB_ID = "actions-builder";
+const ACTIONS_BUILDER_TAB: {
+  id: "actions-builder";
+  title: string;
+  kind: "actions-builder";
+  closable: boolean;
+} = {
+  id: "actions-builder",
+  title: "actions builder",
+  kind: "actions-builder",
+  closable: false,
+};
 const ACTIONS_HISTORY_TAB: {
   id: "actions-history";
   title: string;
@@ -14,12 +24,19 @@ const ACTIONS_HISTORY_TAB: {
   id: "actions-history",
   title: "actions history",
   kind: "actions-history",
-  closable: true,
+  closable: false,
 };
-import { EyeOff, History, Play, Settings2 } from "lucide-react";
+import { Check, Copy, EyeOff, History, Play, Settings2 } from "lucide-react";
+import { useState } from "react";
 
 type ActionKind = "alert" | "recommendation";
 type Status = "pending" | "executed" | "dismissed";
+
+interface TokenRef {
+  symbol: string;
+  address: string;
+  chain?: string;
+}
 
 interface BunnyAction {
   id: string;
@@ -29,8 +46,57 @@ interface BunnyAction {
   source: string;
   push: boolean;
   executeInstructions: string;
+  tokens?: TokenRef[];
   createdAt: string;
   status: Status;
+}
+
+function shortAddress(addr: string): string {
+  if (addr.length <= 13) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+export function TokensMentioned({ tokens }: { tokens: TokenRef[] }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  if (!tokens || tokens.length === 0) return null;
+
+  const copy = async (addr: string) => {
+    try {
+      await navigator.clipboard.writeText(addr);
+      setCopied(addr);
+      setTimeout(() => setCopied((c) => (c === addr ? null : c)), 1200);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+        tokens mentioned
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {tokens.map((t, i) => (
+          <button
+            key={`${t.address}-${i}`}
+            onClick={() => void copy(t.address)}
+            title={`${t.address}${t.chain ? ` · ${t.chain}` : ""} — click to copy`}
+            className="group/token flex items-center gap-1.5 font-mono text-[10px] border border-border/50 rounded px-1.5 py-0.5 bg-background/40 hover:border-foreground/30 transition-colors"
+          >
+            <span className="text-foreground">{t.symbol}</span>
+            <span className="text-muted-foreground/70">
+              {shortAddress(t.address)}
+            </span>
+            {copied === t.address ? (
+              <Check className="h-2.5 w-2.5 text-green" />
+            ) : (
+              <Copy className="h-2.5 w-2.5 text-muted-foreground/50 group-hover/token:text-foreground" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface ActionsState {
@@ -69,7 +135,10 @@ export function ActionsPanel() {
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/actions"] });
-  const openBuilder = () => setActive(ACTIONS_BUILDER_TAB_ID);
+  const openBuilder = () => {
+    openTab(ACTIONS_BUILDER_TAB);
+    setActive(ACTIONS_BUILDER_TAB.id);
+  };
   const openHistory = () => {
     openTab(ACTIONS_HISTORY_TAB);
     setActive(ACTIONS_HISTORY_TAB.id);
@@ -89,11 +158,72 @@ export function ActionsPanel() {
   };
 
   // "hide" — soft-delete from the live inbox. The row stays in history
-  // forever and can be unhidden from the history view.
+  // forever and can be unhidden from the history view. Optimistic: drop the
+  // row from the cache immediately so the UI feels instant, then sync with
+  // the server in the background and reconcile on error.
   const hideAction = async (a: BunnyAction) => {
     playSound("click");
-    await fetch(`/api/actions/${a.id}/dismiss`, { method: "POST" });
-    refresh();
+    await queryClient.cancelQueries({ queryKey: ["/api/actions"] });
+    const prev = queryClient.getQueryData<ActionsState>(["/api/actions"]);
+    queryClient.setQueryData<ActionsState>(["/api/actions"], (old) =>
+      old
+        ? {
+            ...old,
+            actions: old.actions.map((x) =>
+              x.id === a.id ? { ...x, status: "dismissed" } : x,
+            ),
+          }
+        : old,
+    );
+    try {
+      const r = await fetch(`/api/actions/${a.id}/dismiss`, { method: "POST" });
+      if (!r.ok) throw new Error(`dismiss failed: ${r.status}`);
+    } catch {
+      // Roll back just this row (not the whole snapshot, which could clobber a
+      // concurrent hide) so the failed item reappears.
+      queryClient.setQueryData<ActionsState>(["/api/actions"], (old) =>
+        old
+          ? {
+              ...old,
+              actions: old.actions.map((x) =>
+                x.id === a.id ? { ...x, status: "pending" } : x,
+              ),
+            }
+          : old,
+      );
+    } finally {
+      // Reconcile with server truth. The optimistic update already made the UI
+      // feel instant; this background refetch closes the race where the 30s
+      // poll could otherwise resurrect the row with pre-dismiss data.
+      refresh();
+    }
+  };
+
+  // "hide all" — clear every pending row from the live inbox in one shot.
+  // Same optimistic pattern: empty the inbox instantly, sync in the background,
+  // roll back the whole snapshot on error.
+  const hideAll = async () => {
+    playSound("click");
+    await queryClient.cancelQueries({ queryKey: ["/api/actions"] });
+    const prev = queryClient.getQueryData<ActionsState>(["/api/actions"]);
+    queryClient.setQueryData<ActionsState>(["/api/actions"], (old) =>
+      old
+        ? {
+            ...old,
+            actions: old.actions.map((x) =>
+              x.status === "pending" ? { ...x, status: "dismissed" } : x,
+            ),
+          }
+        : old,
+    );
+    try {
+      const r = await fetch("/api/actions/dismiss-all", { method: "POST" });
+      if (!r.ok) throw new Error(`dismiss-all failed: ${r.status}`);
+    } catch {
+      if (prev) queryClient.setQueryData(["/api/actions"], prev);
+    } finally {
+      refresh();
+    }
   };
 
   const pending = (data?.actions ?? []).filter(
@@ -106,31 +236,42 @@ export function ActionsPanel() {
     <div className="h-full flex flex-col border-r border-border bg-background">
       <div className="px-4 py-3 border-b border-border/50 shrink-0 flex items-center justify-between gap-2">
         <h2 className="font-sans text-xs font-medium text-muted-foreground uppercase tracking-widest">
-          actions
+          actions inbox
         </h2>
-        <button
-          onClick={openHistory}
-          className="font-mono text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
-          title="see every action ever posted, including hidden ones"
-        >
-          <History className="h-3 w-3" />
-          history
-        </button>
-      </div>
-
-      <div className="border-b border-border/50 shrink-0">
-        <button
-          onClick={openBuilder}
-          className="w-full px-4 py-2 flex items-center gap-2 hover:bg-foreground/5 text-left"
-        >
-          <Settings2 className="h-3 w-3 text-muted-foreground" />
-          <span className="font-mono text-[11px] text-muted-foreground flex-1">
-            actions builder
-          </span>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            manage →
-          </span>
-        </button>
+        <div className="flex items-center gap-1">
+          {pending.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={hideAll}
+              className="h-7 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+              title="hide every pending recommendation and alert — kept in history"
+            >
+              <EyeOff className="h-3 w-3 mr-1" />
+              hide all
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openBuilder}
+            className="h-7 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+            title="create and manage actions that run 24/7"
+          >
+            <Settings2 className="h-3 w-3 mr-1" />
+            builder
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openHistory}
+            className="h-7 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+            title="see every action ever posted, including hidden ones"
+          >
+            <History className="h-3 w-3 mr-1" />
+            history
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-5">
@@ -225,11 +366,14 @@ function ActionSection({
               <EyeOff className="h-3 w-3" />
             </button>
           </div>
-          <div className="font-mono text-[11px] text-foreground/80 leading-relaxed">
+          <div className="font-mono text-[11px] text-foreground/80 leading-relaxed break-words">
             {a.description}
           </div>
+          {a.tokens && a.tokens.length > 0 && (
+            <TokensMentioned tokens={a.tokens} />
+          )}
           {executable && a.executeInstructions && (
-            <div className="font-mono text-[10px] text-muted-foreground/80 bg-background/40 border border-border/40 rounded px-2 py-1 leading-relaxed">
+            <div className="font-mono text-[10px] text-muted-foreground/80 bg-background/40 border border-border/40 rounded px-2 py-1 leading-relaxed break-words">
               <span className="text-muted-foreground">execute:</span>{" "}
               <span className="text-foreground/80">{a.executeInstructions}</span>
             </div>

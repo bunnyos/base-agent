@@ -31,10 +31,10 @@ import {
   useSetMoralisKey,
   useClearMoralisKey,
   getGetMoralisKeyStatusQueryKey,
-  useGetCmcKeyStatus,
-  useSetCmcKey,
-  useClearCmcKey,
-  getGetCmcKeyStatusQueryKey,
+  useGetCoingeckoKeyStatus,
+  useSetCoingeckoKey,
+  useClearCoingeckoKey,
+  getGetCoingeckoKeyStatusQueryKey,
   getListModelsQueryKey,
   useGetMemory,
   useUpdateMemory,
@@ -50,7 +50,7 @@ export function ConfigureView() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
   const [moralisDraft, setMoralisDraft] = useState("");
-  const [cmcDraft, setCmcDraft] = useState("");
+  const [coingeckoDraft, setCoingeckoDraft] = useState("");
 
   const { data: keyStatus } = useGetApiKeyStatus();
   const setApiKey = useSetApiKey();
@@ -60,9 +60,9 @@ export function ConfigureView() {
   const setMoralisKey = useSetMoralisKey();
   const clearMoralisKey = useClearMoralisKey();
 
-  const { data: cmcStatus } = useGetCmcKeyStatus();
-  const setCmcKey = useSetCmcKey();
-  const clearCmcKey = useClearCmcKey();
+  const { data: coingeckoStatus } = useGetCoingeckoKeyStatus();
+  const setCoingeckoKey = useSetCoingeckoKey();
+  const clearCoingeckoKey = useClearCoingeckoKey();
 
   const { data: models = [] } = useListModels({
     query: {
@@ -114,21 +114,21 @@ export function ConfigureView() {
     queryClient.invalidateQueries({ queryKey: getGetMoralisKeyStatusQueryKey() });
   };
 
-  const handleSaveCmc = async () => {
-    if (cmcDraft.trim().length < 8) return;
-    await setCmcKey.mutateAsync({
-      data: { apiKey: cmcDraft.trim() },
+  const handleSaveCoingecko = async () => {
+    if (coingeckoDraft.trim().length < 8) return;
+    await setCoingeckoKey.mutateAsync({
+      data: { apiKey: coingeckoDraft.trim() },
     });
-    setCmcDraft("");
+    setCoingeckoDraft("");
     queryClient.invalidateQueries({
-      queryKey: getGetCmcKeyStatusQueryKey(),
+      queryKey: getGetCoingeckoKeyStatusQueryKey(),
     });
   };
 
-  const handleClearCmc = async () => {
-    await clearCmcKey.mutateAsync();
+  const handleClearCoingecko = async () => {
+    await clearCoingeckoKey.mutateAsync();
     queryClient.invalidateQueries({
-      queryKey: getGetCmcKeyStatusQueryKey(),
+      queryKey: getGetCoingeckoKeyStatusQueryKey(),
     });
   };
 
@@ -359,38 +359,38 @@ export function ConfigureView() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="cmc-key" className="text-xs">
-                  coinmarketcap api key{" "}
+                <Label htmlFor="coingecko-key" className="text-xs">
+                  coingecko api key{" "}
                   <span className="text-red ml-1">*required</span>
                 </Label>
                 <a
-                  href="https://coinmarketcap.com/api/"
+                  href="https://www.coingecko.com/en/api/pricing"
                   target="_blank"
                   rel="noreferrer"
                   className="text-[10px] text-accent hover:opacity-90 inline-flex items-center gap-1"
-                  data-testid="link-cmc-signup"
+                  data-testid="link-coingecko-signup"
                 >
                   get free key <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
-                  id="cmc-key"
+                  id="coingecko-key"
                   type="password"
                   placeholder={
-                    cmcStatus?.configured ? cmcStatus.masked : "xxxx-xxxx-..."
+                    coingeckoStatus?.configured ? coingeckoStatus.masked : "CG-xxxx..."
                   }
-                  value={cmcDraft}
-                  onChange={(e) => setCmcDraft(e.target.value)}
+                  value={coingeckoDraft}
+                  onChange={(e) => setCoingeckoDraft(e.target.value)}
                   className="font-mono text-xs h-8"
-                  data-testid="input-cmc-key"
+                  data-testid="input-coingecko-key"
                 />
                 <Button
                   size="sm"
                   className="h-8 text-xs font-mono"
-                  onClick={handleSaveCmc}
-                  disabled={cmcDraft.trim().length < 8 || setCmcKey.isPending}
-                  data-testid="button-save-cmc-key"
+                  onClick={handleSaveCoingecko}
+                  disabled={coingeckoDraft.trim().length < 8 || setCoingeckoKey.isPending}
+                  data-testid="button-save-coingecko-key"
                 >
                   save
                 </Button>
@@ -398,31 +398,31 @@ export function ConfigureView() {
               <div className="flex items-center justify-between text-xs">
                 <span
                   className={
-                    cmcStatus?.configured
+                    coingeckoStatus?.configured
                       ? "text-green"
                       : "text-muted-foreground"
                   }
                 >
-                  {cmcStatus?.configured
-                    ? cmcStatus.userProvided
-                      ? `● user key · ${cmcStatus.masked}`
-                      : `● env key · ${cmcStatus.masked}`
+                  {coingeckoStatus?.configured
+                    ? coingeckoStatus.userProvided
+                      ? `● user key · ${coingeckoStatus.masked}`
+                      : `● env key · ${coingeckoStatus.masked}`
                     : "○ no key set"}
                 </span>
-                {cmcStatus?.userProvided && (
+                {coingeckoStatus?.userProvided && (
                   <button
                     className="text-muted-foreground hover:text-red underline-offset-2 hover:underline"
-                    onClick={handleClearCmc}
-                    data-testid="button-clear-cmc-key"
+                    onClick={handleClearCoingecko}
+                    data-testid="button-clear-coingecko-key"
                   >
                     clear
                   </button>
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                bunnyOS needs this for token pricing, market data, and new
-                listing discovery. free Basic tier (no card) — 30 req/min,
-                10k req/month.
+                bunnyOS needs this for token pricing, market data, and discovery.
+                free Demo tier (no card) — ~30 req/min, 10k req/month. required
+                for all calls, including onchain dex lookups.
               </p>
             </div>
 

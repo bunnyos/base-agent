@@ -1,5 +1,5 @@
 import { db, workflowsTable, type WorkflowRow } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, notInArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { hydrateUserSettings, getApiKey } from "./settings";
 import { getCurrentUserId } from "./user";
@@ -15,7 +15,12 @@ import {
   type OpenRouterTool,
   type Msg,
 } from "./bunny-agent";
-import { insertAction } from "./actions";
+import {
+  insertAction,
+  listRecentActionsBySource,
+  type TokenRef,
+} from "./actions";
+import { NATIVE_ACTIONS } from "./native-actions";
 
 // ---------- Public types ----------
 
@@ -36,9 +41,13 @@ export interface RunResult {
   error?: string;
 }
 
+export type WorkflowSource = "native" | "custom";
+
 export interface PublicWorkflow {
   id: string;
   name: string;
+  // "native" = shipped in code starter pack; "custom" = user-authored.
+  source: WorkflowSource;
   enabled: boolean;
   intervalMs: number;
   instructions: string;
@@ -96,6 +105,30 @@ const EMIT_TOOLS: OpenRouterTool[] = [
             description:
               "info = FYI / routine; warn = notable change worth attention; critical = urgent risk (liquidation, exploit, account compromise). Use critical sparingly.",
           },
+          tokens: {
+            type: "array",
+            description:
+              "Every token this alert references. Include the contract address (CA) for each so the user can verify it. Omit or leave empty if no specific token is involved.",
+            items: {
+              type: "object",
+              properties: {
+                symbol: {
+                  type: "string",
+                  description: "Token ticker, e.g. 'USDC' or 'WETH'.",
+                },
+                address: {
+                  type: "string",
+                  description:
+                    "On-chain contract address (CA), e.g. '0x...'. Use the exact address from the tool data, never invent one.",
+                },
+                chain: {
+                  type: "string",
+                  description: "Network slug, e.g. 'base'. Optional.",
+                },
+              },
+              required: ["symbol", "address"],
+            },
+          },
         },
         required: ["title", "summary"],
       },
@@ -123,6 +156,30 @@ const EMIT_TOOLS: OpenRouterTool[] = [
             description:
               "A single short imperative sentence the chat agent can act on, e.g. 'deposit 100 USDC into the morpho gauntlet usdc vault on base' or 'swap 0.1 ETH for USDC on base'. Be specific about amounts, assets, and venues.",
           },
+          tokens: {
+            type: "array",
+            description:
+              "Every token this recommendation references. Include the contract address (CA) for each so the user can verify it. Omit or leave empty if no specific token is involved.",
+            items: {
+              type: "object",
+              properties: {
+                symbol: {
+                  type: "string",
+                  description: "Token ticker, e.g. 'USDC' or 'WETH'.",
+                },
+                address: {
+                  type: "string",
+                  description:
+                    "On-chain contract address (CA), e.g. '0x...'. Use the exact address from the tool data, never invent one.",
+                },
+                chain: {
+                  type: "string",
+                  description: "Network slug, e.g. 'base'. Optional.",
+                },
+              },
+              required: ["symbol", "address"],
+            },
+          },
         },
         required: ["title", "why", "executeInstructions"],
       },
@@ -139,6 +196,7 @@ Hard rules:
 - Never call write tools yourself (send_calls, any *prepare* tool). The user owns execution via the Execute button on a recommendation.
 - emit_recommendation.executeInstructions must be a single short imperative sentence the chat agent can act on with specific amounts, assets, and venues.
 - emit_alert severity "critical" is reserved for genuine risk (liquidation, exploit, account compromise). Default to "info".
+- Whenever a finding is about specific token(s), populate the \`tokens\` array with each token's symbol and contract address (CA) using the exact address from the tool data. Never fabricate an address; omit a token rather than guess.
 - If a tool errors or returns nothing useful, do NOT invent data. Either emit a low-severity alert noting the failure, or stop silently if it's transient.
 - You are budget-limited: do the minimum tool calls needed, then emit and stop.
 - After emitting, end your turn with a brief one-line note (not shown to the user — only logged) describing what you did. Do not chat.
@@ -161,7 +219,62 @@ function buildReferer(): string {
   return OPENROUTER_HTTP_REFERER;
 }
 
-export async function executeWorkflow(row: WorkflowRow): Promise<RunResult> {
+// Coerce the model's `tokens` argument into a clean TokenRef[]. Drops entries
+// missing a symbol or address, trims/caps lengths, and limits the count so a
+// hallucinated blob can't bloat a row.
+function sanitizeTokens(raw: unknown): TokenRef[] {
+  if (!Array.isArray(raw)) return [];
+  // Only accept primitive strings — never String()-coerce objects/arrays, or a
+  // malformed model payload turns into "[object Object]" junk chips.
+  const str = (v: unknown, max: number): string =>
+    typeof v === "string" ? v.trim().slice(0, max) : "";
+  const out: TokenRef[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const symbol = str(o["symbol"], 32);
+    const address = str(o["address"], 128);
+    if (!symbol || !address) continue;
+    const chain = str(o["chain"], 32);
+    const dedupeKey = `${chain.toLowerCase()}:${address.toLowerCase()}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    const ref: TokenRef = { symbol, address };
+    if (chain) ref.chain = chain;
+    out.push(ref);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+// How many of an action's own recent findings to feed back into its runner.
+const RECENT_FINDINGS_LIMIT = 10;
+
+// Build a context block of the action's own recent emissions so the model can
+// avoid re-posting the same/similar findings. Returns "" when there is no
+// history yet (first runs, or after a clear).
+async function buildRecentFindingsBlock(source: string): Promise<string> {
+  let recent: Awaited<ReturnType<typeof listRecentActionsBySource>>;
+  try {
+    recent = await listRecentActionsBySource(source, RECENT_FINDINGS_LIMIT);
+  } catch {
+    // History is an optimization, never block a run on it.
+    return "";
+  }
+  if (recent.length === 0) return "";
+  const lines = recent.map((a) => {
+    const title = a.title.replace(/\s+/g, " ").trim().slice(0, 140);
+    const body = a.description.replace(/\s+/g, " ").trim().slice(0, 180);
+    return `- [${a.kind}] ${title}${body ? ` — ${body}` : ""}`;
+  });
+  return `
+Your ${lines.length} most recent finding(s) for this action (newest first). Do NOT emit an alert or recommendation that repeats, restates, or is substantially similar to any of these — only emit genuinely new findings or material changes since these were posted:
+${lines.join("\n")}
+`;
+}
+
+async function executeWorkflow(row: WorkflowRow): Promise<RunResult> {
   const ranAt = new Date().toISOString();
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -206,11 +319,18 @@ export async function executeWorkflow(row: WorkflowRow): Promise<RunResult> {
 
   const source = `action:${row.id}`;
   const emitted: RunEmit[] = [];
+
+  // Feed the agent its own recent output so it doesn't re-post the same or
+  // near-identical findings on every run. Title-only pending dedupe (in
+  // insertAction) can't catch reworded repeats — this gives the model the
+  // context to suppress them itself.
+  const recentBlock = await buildRecentFindingsBlock(source);
+
   const messages: Msg[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `Action name: ${row.name || "(unnamed)"}\n\nInstructions from the user:\n${instructions}\n\nRun now. Gather what you need, emit any warranted alerts or recommendations, then stop.`,
+      content: `Action name: ${row.name || "(unnamed)"}\n\nInstructions from the user:\n${instructions}\n${recentBlock}\nRun now. Gather what you need, emit any warranted alerts or recommendations, then stop.`,
     },
   ];
 
@@ -274,6 +394,7 @@ export async function executeWorkflow(row: WorkflowRow): Promise<RunResult> {
               title: `[${sev}] ${title}`.slice(0, 200),
               description: summary || title,
               source,
+              tokens: sanitizeTokens(args["tokens"]),
             });
             emitted.push({
               kind: "alert",
@@ -304,6 +425,7 @@ export async function executeWorkflow(row: WorkflowRow): Promise<RunResult> {
               description: why || title,
               source,
               executeInstructions: exec,
+              tokens: sanitizeTokens(args["tokens"]),
             });
             emitted.push({
               kind: "recommendation",
@@ -396,6 +518,7 @@ function rowToPublic(r: WorkflowRow): PublicWorkflow {
   return {
     id: r.id,
     name: r.name,
+    source: r.source === "native" ? "native" : "custom",
     enabled: r.enabled,
     intervalMs: r.intervalMs,
     instructions: r.instructions ?? "",
@@ -407,8 +530,72 @@ function rowToPublic(r: WorkflowRow): PublicWorkflow {
   };
 }
 
+// ---------- Native (starter pack) seeding ----------
+
+// Per-user row id for a native action. Deterministic so re-seeding upserts the
+// same row instead of duplicating.
+function nativeId(userId: string, key: string): string {
+  return `nv:${key}:${userId}`;
+}
+
+// One attempt per user per process. Seeding is idempotent, but this keeps the
+// hot path (every authenticated request / every GET /workflows) from firing 20
+// upserts each time.
+const seededUsers = new Set<string>();
+
+// Upsert the native starter pack into a user's workflows. Inserts run enabled
+// (native ships on by default); re-seeds refresh the code-owned definition
+// fields but deliberately leave `enabled` alone so a user's toggle sticks.
+export async function seedNativeWorkflows(userId: string): Promise<void> {
+  if (seededUsers.has(userId)) return;
+  try {
+    for (const def of NATIVE_ACTIONS) {
+      await db
+        .insert(workflowsTable)
+        .values({
+          id: nativeId(userId, def.key),
+          userId,
+          name: def.name,
+          source: "native",
+          enabled: true,
+          intervalMs: normalizeInterval(def.intervalMs),
+          instructions: def.instructions,
+          toolAllowlist: def.toolAllowlist,
+        })
+        .onConflictDoUpdate({
+          target: workflowsTable.id,
+          set: {
+            name: def.name,
+            source: "native",
+            intervalMs: normalizeInterval(def.intervalMs),
+            instructions: def.instructions,
+            toolAllowlist: def.toolAllowlist,
+          },
+        });
+    }
+    // Prune orphaned native rows: native actions removed from NATIVE_ACTIONS in
+    // a release should stop running. Custom (user-created) rows are never touched.
+    const liveIds = NATIVE_ACTIONS.map((d) => nativeId(userId, d.key));
+    await db
+      .delete(workflowsTable)
+      .where(
+        and(
+          eq(workflowsTable.userId, userId),
+          eq(workflowsTable.source, "native"),
+          notInArray(workflowsTable.id, liveIds),
+        ),
+      );
+    seededUsers.add(userId);
+  } catch (err) {
+    // Never let seeding break a request or the scheduler. It'll retry next time
+    // (we only mark the user seeded on success).
+    logger.warn({ err, userId }, "native action seeding failed");
+  }
+}
+
 export async function listWorkflows(): Promise<PublicWorkflow[]> {
   const userId = getCurrentUserId();
+  await seedNativeWorkflows(userId);
   const rows = await db
     .select()
     .from(workflowsTable)
@@ -421,7 +608,7 @@ export async function listWorkflows(): Promise<PublicWorkflow[]> {
     });
 }
 
-export function normalizeInterval(ms: unknown): number {
+function normalizeInterval(ms: unknown): number {
   if (typeof ms !== "number" || !Number.isFinite(ms)) return 600_000;
   for (const allowed of ALLOWED_INTERVALS_MS) {
     if (ms <= allowed) return allowed;
@@ -454,15 +641,28 @@ export async function updateWorkflow(
   patch: Partial<WorkflowDraft>,
 ): Promise<PublicWorkflow | null> {
   const userId = getCurrentUserId();
+  // Look up the row first so we can enforce the native guard: native rows are
+  // code-owned, so the only field a user may change in place is `enabled`.
+  // Definition edits to a native action fork into a custom copy on the client.
+  const [existing] = await db
+    .select()
+    .from(workflowsTable)
+    .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)));
+  if (!existing) return null;
+  const isNative = existing.source === "native";
+
   const values: Partial<typeof workflowsTable.$inferInsert> = {};
-  if (patch.name !== undefined)
-    values.name = patch.name.trim() || "untitled action";
   if (patch.enabled !== undefined) values.enabled = patch.enabled;
-  if (patch.intervalMs !== undefined)
-    values.intervalMs = normalizeInterval(patch.intervalMs);
-  if (patch.instructions !== undefined) values.instructions = patch.instructions;
-  if (patch.toolAllowlist !== undefined)
-    values.toolAllowlist = patch.toolAllowlist;
+  if (!isNative) {
+    if (patch.name !== undefined)
+      values.name = patch.name.trim() || "untitled action";
+    if (patch.intervalMs !== undefined)
+      values.intervalMs = normalizeInterval(patch.intervalMs);
+    if (patch.instructions !== undefined)
+      values.instructions = patch.instructions;
+    if (patch.toolAllowlist !== undefined)
+      values.toolAllowlist = patch.toolAllowlist;
+  }
   if (Object.keys(values).length === 0) {
     const [row] = await db
       .select()
@@ -478,13 +678,23 @@ export async function updateWorkflow(
   return row ? rowToPublic(row) : null;
 }
 
-export async function deleteWorkflow(id: string): Promise<boolean> {
+export type DeleteResult = "deleted" | "not_found" | "native";
+
+export async function deleteWorkflow(id: string): Promise<DeleteResult> {
   const userId = getCurrentUserId();
+  const [existing] = await db
+    .select({ source: workflowsTable.source })
+    .from(workflowsTable)
+    .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)));
+  if (!existing) return "not_found";
+  // Native actions are not deletable — they can only be disabled. Deleting one
+  // would just get re-seeded on the next request anyway.
+  if (existing.source === "native") return "native";
   const rows = await db
     .delete(workflowsTable)
     .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)))
     .returning({ id: workflowsTable.id });
-  return rows.length > 0;
+  return rows.length > 0 ? "deleted" : "not_found";
 }
 
 export async function runWorkflowNow(id: string): Promise<RunResult | null> {

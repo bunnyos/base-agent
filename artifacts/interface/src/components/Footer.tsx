@@ -18,7 +18,7 @@ export function Footer() {
         @officialbunnyos
       </a>
       <span className="font-mono flex items-center gap-3">
-        <span>v0.1</span>
+        <span>v0.2</span>
       </span>
     </footer>
   );

@@ -1,5 +1,21 @@
-import { pgTable, uuid, text, timestamp, index, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  index,
+  boolean,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+
+// A token referenced by an alert/recommendation. `address` is the on-chain
+// contract address (CA); `chain` is the network slug (e.g. "base") when known.
+export interface TokenRef {
+  symbol: string;
+  address: string;
+  chain?: string;
+}
 
 export const actionsTable = pgTable(
   "actions",
@@ -24,6 +40,9 @@ export const actionsTable = pgTable(
     // For recommendations: the chat prompt that pre-fills when the user
     // clicks "execute". Empty string for alerts.
     suggestedPrompt: text("suggested_prompt").notNull().default(""),
+    // Tokens this item references, surfaced in the UI as "tokens mentioned"
+    // with their contract addresses. Empty array when none.
+    tokens: jsonb("tokens").$type<TokenRef[]>().notNull().default([]),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

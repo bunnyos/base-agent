@@ -81,7 +81,8 @@ BunnyOS speaks MCP natively and ships a first-party tool library on top. Each so
 |---|---|
 | **Base account MCP** | wallet, balances, portfolio, sends, swaps, EIP-5792 batched calls |
 | **Moralis** | multi-chain EVM history, token balances + USD, NFTs, DeFi positions, trending tokens |
-| **CoinMarketCap** | quotes, listings, metadata |
+| **CoinGecko** | token quotes, listings, metadata, on-chain DEX pairs |
+| **GoPlus** | token security & risk checks (no key required) |
 | **DeFi Llama** | TVL, yield pools, stablecoin flows, DEX volumes (no key required) |
 | **Bankr** | recent token launches |
 | **Morpho MCP** | lending markets, vault data |
@@ -93,6 +94,7 @@ BunnyOS speaks MCP natively and ships a first-party tool library on top. Each so
 - **Agent actions**: autonomous scanners on configurable intervals generating alerts and recommendations.
 - **Actions ecosystem**: ships with pre-built actions; developers extend it by adding custom actions, scanners, tooling providers, or protocol integrations.
 - **Memory**: persistent, user-authored markdown that shapes every prompt.
+- **Token explorer**: search any token for live market data and security/risk signals, exportable as a formatted PDF report.
 
 
 ## Quickstart

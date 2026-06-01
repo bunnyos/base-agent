@@ -3,9 +3,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { playSound } from "@/lib/sound";
+import { TokensMentioned } from "./ActionsPanel";
 
 type Kind = "alert" | "recommendation";
 type Status = "pending" | "executed" | "dismissed";
+
+interface TokenRef {
+  symbol: string;
+  address: string;
+  chain?: string;
+}
 
 interface HistoryAction {
   id: string;
@@ -14,6 +21,7 @@ interface HistoryAction {
   description: string;
   source: string;
   executeInstructions: string;
+  tokens?: TokenRef[];
   createdAt: string;
   status: Status;
 }
@@ -229,11 +237,16 @@ export function ActionsHistoryView() {
                       </Button>
                     )}
                   </div>
-                  <div className="font-mono text-[11px] text-foreground/80 leading-relaxed pl-5">
+                  <div className="font-mono text-[11px] text-foreground/80 leading-relaxed pl-5 break-words">
                     {a.description}
                   </div>
+                  {a.tokens && a.tokens.length > 0 && (
+                    <div className="pl-5">
+                      <TokensMentioned tokens={a.tokens} />
+                    </div>
+                  )}
                   {a.executeInstructions && (
-                    <div className="ml-5 font-mono text-[10px] text-muted-foreground/80 bg-foreground/5 border border-border/40 rounded px-2 py-1 leading-relaxed">
+                    <div className="ml-5 font-mono text-[10px] text-muted-foreground/80 bg-foreground/5 border border-border/40 rounded px-2 py-1 leading-relaxed break-words">
                       <span className="text-muted-foreground">execute:</span>{" "}
                       <span className="text-foreground/80">
                         {a.executeInstructions}

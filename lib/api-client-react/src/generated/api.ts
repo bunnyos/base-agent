@@ -1375,20 +1375,20 @@ export const useClearMoralisKey = <TError = ErrorType<unknown>,
       return useMutation(getClearMoralisKeyMutationOptions(options));
     }
 
-export const getGetCmcKeyStatusUrl = () => {
+export const getGetCoingeckoKeyStatusUrl = () => {
 
 
 
 
-  return `/api/settings/cmc-key`
+  return `/api/settings/coingecko-key`
 }
 
 /**
- * @summary Get the CoinMarketCap API key configuration status
+ * @summary Get the CoinGecko API key configuration status
  */
-export const getCmcKeyStatus = async ( options?: RequestInit): Promise<ApiKeyStatus> => {
+export const getCoingeckoKeyStatus = async ( options?: RequestInit): Promise<ApiKeyStatus> => {
 
-  return customFetch<ApiKeyStatus>(getGetCmcKeyStatusUrl(),
+  return customFetch<ApiKeyStatus>(getGetCoingeckoKeyStatusUrl(),
   {
     ...options,
     method: 'GET'
@@ -1401,45 +1401,45 @@ export const getCmcKeyStatus = async ( options?: RequestInit): Promise<ApiKeySta
 
 
 
-export const getGetCmcKeyStatusQueryKey = () => {
+export const getGetCoingeckoKeyStatusQueryKey = () => {
     return [
-    `/api/settings/cmc-key`
+    `/api/settings/coingecko-key`
     ] as const;
     }
 
 
-export const getGetCmcKeyStatusQueryOptions = <TData = Awaited<ReturnType<typeof getCmcKeyStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCmcKeyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCoingeckoKeyStatusQueryOptions = <TData = Awaited<ReturnType<typeof getCoingeckoKeyStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoingeckoKeyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetCmcKeyStatusQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetCoingeckoKeyStatusQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCmcKeyStatus>>> = ({ signal }) => getCmcKeyStatus({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoingeckoKeyStatus>>> = ({ signal }) => getCoingeckoKeyStatus({ signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCmcKeyStatus>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoingeckoKeyStatus>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetCmcKeyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getCmcKeyStatus>>>
-export type GetCmcKeyStatusQueryError = ErrorType<unknown>
+export type GetCoingeckoKeyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getCoingeckoKeyStatus>>>
+export type GetCoingeckoKeyStatusQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get the CoinMarketCap API key configuration status
+ * @summary Get the CoinGecko API key configuration status
  */
 
-export function useGetCmcKeyStatus<TData = Awaited<ReturnType<typeof getCmcKeyStatus>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCmcKeyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetCoingeckoKeyStatus<TData = Awaited<ReturnType<typeof getCoingeckoKeyStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoingeckoKeyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetCmcKeyStatusQueryOptions(options)
+  const queryOptions = getGetCoingeckoKeyStatusQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1452,20 +1452,20 @@ export function useGetCmcKeyStatus<TData = Awaited<ReturnType<typeof getCmcKeySt
 
 
 
-export const getSetCmcKeyUrl = () => {
+export const getSetCoingeckoKeyUrl = () => {
 
 
 
 
-  return `/api/settings/cmc-key`
+  return `/api/settings/coingecko-key`
 }
 
 /**
- * @summary Set the CoinMarketCap API key
+ * @summary Set the CoinGecko API key
  */
-export const setCmcKey = async (apiKeyInput: ApiKeyInput, options?: RequestInit): Promise<ApiKeyStatus> => {
+export const setCoingeckoKey = async (apiKeyInput: ApiKeyInput, options?: RequestInit): Promise<ApiKeyStatus> => {
 
-  return customFetch<ApiKeyStatus>(getSetCmcKeyUrl(),
+  return customFetch<ApiKeyStatus>(getSetCoingeckoKeyUrl(),
   {
     ...options,
     method: 'POST',
@@ -1478,11 +1478,11 @@ export const setCmcKey = async (apiKeyInput: ApiKeyInput, options?: RequestInit)
 
 
 
-export const getSetCmcKeyMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCmcKey>>, TError,{data: BodyType<ApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof setCmcKey>>, TError,{data: BodyType<ApiKeyInput>}, TContext> => {
+export const getSetCoingeckoKeyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCoingeckoKey>>, TError,{data: BodyType<ApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setCoingeckoKey>>, TError,{data: BodyType<ApiKeyInput>}, TContext> => {
 
-const mutationKey = ['setCmcKey'];
+const mutationKey = ['setCoingeckoKey'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1492,10 +1492,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setCmcKey>>, {data: BodyType<ApiKeyInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setCoingeckoKey>>, {data: BodyType<ApiKeyInput>}> = (props) => {
           const {data} = props ?? {};
 
-          return  setCmcKey(data,requestOptions)
+          return  setCoingeckoKey(data,requestOptions)
         }
 
 
@@ -1505,38 +1505,38 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type SetCmcKeyMutationResult = NonNullable<Awaited<ReturnType<typeof setCmcKey>>>
-    export type SetCmcKeyMutationBody = BodyType<ApiKeyInput>
-    export type SetCmcKeyMutationError = ErrorType<unknown>
+    export type SetCoingeckoKeyMutationResult = NonNullable<Awaited<ReturnType<typeof setCoingeckoKey>>>
+    export type SetCoingeckoKeyMutationBody = BodyType<ApiKeyInput>
+    export type SetCoingeckoKeyMutationError = ErrorType<unknown>
 
     /**
- * @summary Set the CoinMarketCap API key
+ * @summary Set the CoinGecko API key
  */
-export const useSetCmcKey = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCmcKey>>, TError,{data: BodyType<ApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useSetCoingeckoKey = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCoingeckoKey>>, TError,{data: BodyType<ApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof setCmcKey>>,
+        Awaited<ReturnType<typeof setCoingeckoKey>>,
         TError,
         {data: BodyType<ApiKeyInput>},
         TContext
       > => {
-      return useMutation(getSetCmcKeyMutationOptions(options));
+      return useMutation(getSetCoingeckoKeyMutationOptions(options));
     }
 
-export const getClearCmcKeyUrl = () => {
+export const getClearCoingeckoKeyUrl = () => {
 
 
 
 
-  return `/api/settings/cmc-key`
+  return `/api/settings/coingecko-key`
 }
 
 /**
- * @summary Clear the user-provided CoinMarketCap API key (falls back to env)
+ * @summary Clear the user-provided CoinGecko API key (falls back to env)
  */
-export const clearCmcKey = async ( options?: RequestInit): Promise<ApiKeyStatus> => {
+export const clearCoingeckoKey = async ( options?: RequestInit): Promise<ApiKeyStatus> => {
 
-  return customFetch<ApiKeyStatus>(getClearCmcKeyUrl(),
+  return customFetch<ApiKeyStatus>(getClearCoingeckoKeyUrl(),
   {
     ...options,
     method: 'DELETE'
@@ -1548,11 +1548,11 @@ export const clearCmcKey = async ( options?: RequestInit): Promise<ApiKeyStatus>
 
 
 
-export const getClearCmcKeyMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearCmcKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof clearCmcKey>>, TError,void, TContext> => {
+export const getClearCoingeckoKeyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearCoingeckoKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearCoingeckoKey>>, TError,void, TContext> => {
 
-const mutationKey = ['clearCmcKey'];
+const mutationKey = ['clearCoingeckoKey'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1562,10 +1562,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearCmcKey>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearCoingeckoKey>>, void> = () => {
 
 
-          return  clearCmcKey(requestOptions)
+          return  clearCoingeckoKey(requestOptions)
         }
 
 
@@ -1575,22 +1575,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type ClearCmcKeyMutationResult = NonNullable<Awaited<ReturnType<typeof clearCmcKey>>>
+    export type ClearCoingeckoKeyMutationResult = NonNullable<Awaited<ReturnType<typeof clearCoingeckoKey>>>
 
-    export type ClearCmcKeyMutationError = ErrorType<unknown>
+    export type ClearCoingeckoKeyMutationError = ErrorType<unknown>
 
     /**
- * @summary Clear the user-provided CoinMarketCap API key (falls back to env)
+ * @summary Clear the user-provided CoinGecko API key (falls back to env)
  */
-export const useClearCmcKey = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearCmcKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useClearCoingeckoKey = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearCoingeckoKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof clearCmcKey>>,
+        Awaited<ReturnType<typeof clearCoingeckoKey>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getClearCmcKeyMutationOptions(options));
+      return useMutation(getClearCoingeckoKeyMutationOptions(options));
     }
 
 export const getCallBaseMcpToolUrl = () => {

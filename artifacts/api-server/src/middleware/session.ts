@@ -10,6 +10,7 @@ import {
 import { runWithRequestContext } from "../lib/request-context";
 import { hydrateUserSettings } from "../lib/settings";
 import { LOCAL_USER_ID, ensureLocalUser } from "../lib/user";
+import { seedNativeWorkflows } from "../lib/workflows";
 
 // Resolves the active user from the session cookie, hydrates their settings
 // cache, then runs the rest of the request inside AsyncLocalStorage so
@@ -70,6 +71,9 @@ export function sessionMiddleware(
 
       if (payload) {
         await hydrateUserSettings(payload.uid);
+        // Seed the native starter pack so it runs on the scheduler even if the
+        // user never opens the builder. Idempotent + gated to once per process.
+        await seedNativeWorkflows(payload.uid);
         runWithRequestContext({ userId: payload.uid, origin }, () => next());
         return;
       }

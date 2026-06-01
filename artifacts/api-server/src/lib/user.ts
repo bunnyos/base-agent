@@ -1,5 +1,5 @@
 import { db, usersTable, userSettingsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { getActiveUserId } from "./request-context";
 
@@ -66,11 +66,4 @@ export async function upsertUserByWallet(walletAddress: string): Promise<string>
 
   logger.info({ userId: row.id, walletAddress: lower }, "wallet user upserted");
   return row.id;
-}
-
-export async function countUsers(): Promise<number> {
-  const [row] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(usersTable);
-  return row?.c ?? 0;
 }

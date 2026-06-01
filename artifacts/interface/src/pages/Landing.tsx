@@ -97,7 +97,7 @@ export default function Landing() {
 
         <p className="mt-6 max-w-xl text-base md:text-lg text-muted-foreground leading-relaxed">built on the base stack. built for anyone, free.</p>
 
-        <div className="mt-10 flex items-center justify-center gap-2">
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
             onClick={() => void handleConnect()}
@@ -107,14 +107,26 @@ export default function Landing() {
           >
             {ctaLabel}
           </button>
-          <button
-            type="button"
-            disabled
-            className="px-3 py-1.5 rounded-md border border-border/70 font-sans text-sm font-medium text-muted-foreground cursor-not-allowed"
-            data-testid="button-github-coming-soon"
+          <a
+            href="https://app.virtuals.io/virtuals/80805"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => playSound("confirm")}
+            className="px-3 py-1.5 rounded-md border border-border/70 font-sans text-sm font-medium hover:bg-foreground/5 transition-colors"
+            data-testid="link-support-virtuals"
           >
-            github (coming soon)
-          </button>
+            support on virtuals
+          </a>
+          <a
+            href="https://github.com/bunnyos/base-agent"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => playSound("confirm")}
+            className="px-3 py-1.5 rounded-md border border-border/70 font-sans text-sm font-medium hover:bg-foreground/5 transition-colors"
+            data-testid="link-github"
+          >
+            github
+          </a>
         </div>
       </section>
       <section className="relative z-10 w-full px-6 pb-8 shrink-0">

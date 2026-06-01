@@ -264,9 +264,9 @@ export const ClearMoralisKeyResponse = zod.object({
 
 
 /**
- * @summary Get the CoinMarketCap API key configuration status
+ * @summary Get the CoinGecko API key configuration status
  */
-export const GetCmcKeyStatusResponse = zod.object({
+export const GetCoingeckoKeyStatusResponse = zod.object({
   "configured": zod.boolean(),
   "userProvided": zod.boolean(),
   "masked": zod.string()
@@ -274,17 +274,17 @@ export const GetCmcKeyStatusResponse = zod.object({
 
 
 /**
- * @summary Set the CoinMarketCap API key
+ * @summary Set the CoinGecko API key
  */
-export const setCmcKeyBodyApiKeyMin = 8;
+export const setCoingeckoKeyBodyApiKeyMin = 8;
 
 
 
-export const SetCmcKeyBody = zod.object({
-  "apiKey": zod.string().min(setCmcKeyBodyApiKeyMin)
+export const SetCoingeckoKeyBody = zod.object({
+  "apiKey": zod.string().min(setCoingeckoKeyBodyApiKeyMin)
 })
 
-export const SetCmcKeyResponse = zod.object({
+export const SetCoingeckoKeyResponse = zod.object({
   "configured": zod.boolean(),
   "userProvided": zod.boolean(),
   "masked": zod.string()
@@ -292,9 +292,9 @@ export const SetCmcKeyResponse = zod.object({
 
 
 /**
- * @summary Clear the user-provided CoinMarketCap API key (falls back to env)
+ * @summary Clear the user-provided CoinGecko API key (falls back to env)
  */
-export const ClearCmcKeyResponse = zod.object({
+export const ClearCoingeckoKeyResponse = zod.object({
   "configured": zod.boolean(),
   "userProvided": zod.boolean(),
   "masked": zod.string()

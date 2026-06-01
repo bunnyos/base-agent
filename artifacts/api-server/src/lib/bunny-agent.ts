@@ -15,10 +15,10 @@ import {
   moralisStatus,
 } from "./moralis";
 import {
-  listCmcTools,
-  findCmcTool,
-  callCmcTool,
-} from "./cmc";
+  listCoinGeckoTools,
+  findCoinGeckoTool,
+  callCoinGeckoTool,
+} from "./coingecko";
 import {
   listBankrTools,
   findBankrTool,
@@ -37,13 +37,7 @@ import {
 } from "./settings";
 import { API_PROTOCOLS } from "../routes/protocols";
 
-export const FALLBACK_MODELS = [
-  "deepseek/deepseek-v4-pro",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "deepseek/deepseek-chat-v3.1:free",
-  "google/gemini-2.0-flash-exp:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-];
+export const FALLBACK_MODELS = ["openai/gpt-5.4"];
 
 const DEFAULT_MODEL = process.env["LLM_MODEL"] ?? FALLBACK_MODELS[0]!;
 
@@ -289,8 +283,8 @@ export async function getMcpToolsForOpenRouter(): Promise<OpenRouterTool[]> {
     logger.warn({ err }, "Failed to load Moralis tools");
   }
   try {
-    if (isProtocolEnabled("cmc")) {
-      for (const t of listCmcTools()) {
+    if (isProtocolEnabled("coingecko")) {
+      for (const t of listCoinGeckoTools()) {
         out.push({
           type: "function" as const,
           function: {
@@ -335,7 +329,7 @@ export async function getMcpToolsForOpenRouter(): Promise<OpenRouterTool[]> {
       }
     }
   } catch (err) {
-    logger.warn({ err }, "Failed to load CoinMarketCap tools");
+    logger.warn({ err }, "Failed to load CoinGecko tools");
   }
   return out;
 }
@@ -465,11 +459,11 @@ export async function dispatchToolCall(
       throw new Error("Moralis is disabled by the user");
     }
     result = await callMoralisTool(name, args);
-  } else if (findCmcTool(name)) {
-    if (!isProtocolEnabled("cmc")) {
-      throw new Error("CoinMarketCap is disabled by the user");
+  } else if (findCoinGeckoTool(name)) {
+    if (!isProtocolEnabled("coingecko")) {
+      throw new Error("CoinGecko is disabled by the user");
     }
-    result = await callCmcTool(name, args);
+    result = await callCoinGeckoTool(name, args);
   } else if (findBankrTool(name)) {
     if (!isProtocolEnabled("bankr")) {
       throw new Error("Bankr is disabled by the user");

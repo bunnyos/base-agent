@@ -56,7 +56,7 @@ export function encrypt(plaintext: string): string {
   return `${ENC_PREFIX}${b64url(iv)}:${b64url(tag)}:${b64url(ct)}`;
 }
 
-export function decrypt(token: string): string {
+function decrypt(token: string): string {
   if (!token.startsWith(ENC_PREFIX)) {
     throw new Error("not an encrypted token");
   }

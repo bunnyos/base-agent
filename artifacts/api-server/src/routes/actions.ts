@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { listActions, setActionStatus } from "../lib/actions";
+import { listActions, setActionStatus, dismissAllPending } from "../lib/actions";
 
 const router: IRouter = Router();
 
@@ -28,6 +28,16 @@ router.post("/actions/:id/dismiss", async (req, res): Promise<void> => {
     return;
   }
   res.json({ actions: (await listActions()).filter((a) => a.status === "pending") });
+});
+
+// Hide every pending row at once ("hide all"). Returns the (now empty) live
+// inbox list plus how many rows were hidden.
+router.post("/actions/dismiss-all", async (_req, res): Promise<void> => {
+  const hidden = await dismissAllPending();
+  res.json({
+    hidden,
+    actions: (await listActions()).filter((a) => a.status === "pending"),
+  });
 });
 
 // Restore a hidden row to pending so it shows up in the live inbox again.
