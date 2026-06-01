@@ -15,7 +15,7 @@
 </p>
 
 **The first open-source [@base](https://base.org) agent.**
-*Built on the Base stack. Launched 29 May 2026.*
+*Built on the Base MCP. Launched 29 May 2026.*
 
 <img alt="BunnyOS screenshot" src="assets/screenshot.jpeg" width="800">
 
