@@ -3,6 +3,11 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 export type Tab = {
   id: string;
   title: string;
+  // i18n key for static/seeded tab titles (e.g. "tabs.research" or
+  // "common.configure"). When present, the TabBar renders the translated
+  // string and falls back to `title` otherwise. Dynamic tabs (protocol tabs
+  // titled from live data) leave this undefined.
+  titleKey?: string;
   kind:
     | "home"
     | "protocol"
@@ -12,7 +17,8 @@ export type Tab = {
     | "wallet"
     | "actions-builder"
     | "actions-history"
-    | "tokens";
+    | "tokens"
+    | "perps";
   payload?: { protocolId: string };
   // false → no close button in TabBar and closeTab is a no-op.
   // Defaults to true for backward compatibility; `home` is always non-closable
@@ -46,29 +52,45 @@ type TabsContextValue = {
   reorderVisible: (orderedVisibleIds: string[]) => void;
 };
 
-const HOME_TAB: Tab = { id: "home", title: "main", kind: "home" };
+const HOME_TAB: Tab = {
+  id: "home",
+  title: "main",
+  titleKey: "tabs.main",
+  kind: "home",
+};
 const SETTINGS_TAB: Tab = {
   id: "settings",
   title: "configure",
+  titleKey: "common.configure",
   kind: "settings",
   closable: false,
 };
 const ACTIONS_BUILDER_TAB: Tab = {
   id: "actions-builder",
   title: "actions builder",
+  titleKey: "tabs.actionsBuilder",
   kind: "actions-builder",
   closable: false,
 };
 const ACTIONS_HISTORY_TAB: Tab = {
   id: "actions-history",
   title: "actions history",
+  titleKey: "tabs.actionsHistory",
   kind: "actions-history",
   closable: false,
 };
 const TOKENS_TAB: Tab = {
   id: "tokens",
   title: "research",
+  titleKey: "tabs.research",
   kind: "tokens",
+  closable: false,
+};
+const PERPS_TAB: Tab = {
+  id: "perps",
+  title: "perps",
+  titleKey: "tabs.perps",
+  kind: "perps",
   closable: false,
 };
 // Base MCP is the wallet — always-on and seeded on every terminal mount so
@@ -77,6 +99,7 @@ const TOKENS_TAB: Tab = {
 const BASE_MCP_TAB: Tab = {
   id: "protocol:base",
   title: "base mcp",
+  titleKey: "tabs.baseMcp",
   kind: "protocol",
   payload: { protocolId: "base" },
   closable: true,
@@ -90,6 +113,7 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     ACTIONS_BUILDER_TAB,
     ACTIONS_HISTORY_TAB,
     TOKENS_TAB,
+    PERPS_TAB,
     SETTINGS_TAB,
     BASE_MCP_TAB,
   ]);

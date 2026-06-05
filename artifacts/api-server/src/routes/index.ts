@@ -10,6 +10,7 @@ import protocolsRouter from "./protocols";
 import actionsRouter from "./actions";
 import workflowsRouter from "./workflows";
 import tokensRouter from "./tokens";
+import perpsRouter from "./perps";
 import authRouter from "./auth";
 
 const router: IRouter = Router();
@@ -26,5 +27,6 @@ router.use(protocolsRouter);
 router.use(actionsRouter);
 router.use(workflowsRouter);
 router.use(tokensRouter);
+router.use(perpsRouter);
 
 export default router;

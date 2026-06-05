@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useTabs } from "./TabsContext";
+import { useT, type TFn } from "@/i18n";
 
 type ProtocolStatus = {
   id: string;
@@ -20,10 +21,12 @@ function ProtocolRow({
   p,
   onToggle,
   onOpen,
+  t,
 }: {
   p: ProtocolStatus;
   onToggle: (id: string, enabled: boolean) => void;
   onOpen: (p: ProtocolStatus) => void;
+  t: TFn;
 }) {
   const status: "connected" | "available" | "error" | "off" = !p.enabled
     ? "off"
@@ -43,13 +46,13 @@ function ProtocolRow({
   const nameColor =
     status === "connected" ? "text-foreground" : "text-muted-foreground";
   const meta = !p.enabled
-    ? "off"
+    ? t("services.off")
     : p.connected
-      ? `${p.toolCount} tools`
+      ? t("services.toolCount", { count: p.toolCount })
       : p.requiresAuth
-        ? "not authorized"
+        ? t("services.notAuthorized")
         : p.error
-          ? "offline"
+          ? t("services.offline")
           : p.kind;
   return (
     <div
@@ -79,7 +82,7 @@ function ProtocolRow({
         checked={p.enabled}
         onCheckedChange={(v) => onToggle(p.id, v)}
         className="shrink-0 scale-75 -mr-1"
-        aria-label={`toggle ${p.label}`}
+        aria-label={t("services.toggleAria", { label: p.label })}
       />
     </div>
   );
@@ -89,6 +92,7 @@ export function ServicesTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { openTab } = useTabs();
+  const t = useT();
 
   const { data: protocolsData } = useQuery({
     queryKey: ["/api/protocols"],
@@ -129,7 +133,7 @@ export function ServicesTab() {
       body: JSON.stringify({ enabled }),
     }).catch(() => {
       toast({
-        description: `Failed to toggle ${id}`,
+        description: t("services.toggleFailed", { id }),
         duration: 2000,
         variant: "destructive",
       });
@@ -140,15 +144,13 @@ export function ServicesTab() {
   return (
     <div className="space-y-5">
       <p className="text-[10px] text-muted-foreground leading-relaxed">
-        toggle which protocols + apis bunnyOS can call. enabled ones are
-        advertised to the agent on every turn; disabled ones are hidden. click
-        a row to open it in a tab.
+        {t("services.description")}
       </p>
 
       {mcp.length > 0 && (
         <div>
           <h3 className="font-mono text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-            mcp
+            {t("services.mcpSection")}
           </h3>
           <div>
             {mcp.map((p) => (
@@ -157,6 +159,7 @@ export function ServicesTab() {
                 p={p}
                 onToggle={toggleProtocol}
                 onOpen={openProtocolTab}
+                t={t}
               />
             ))}
           </div>
@@ -166,7 +169,7 @@ export function ServicesTab() {
       {api.length > 0 && (
         <div>
           <h3 className="font-mono text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-            bunnyOS implementation
+            {t("services.bunnyosImplementation")}
           </h3>
           <div>
             {api.map((p) => (
@@ -175,6 +178,7 @@ export function ServicesTab() {
                 p={p}
                 onToggle={toggleProtocol}
                 onOpen={openProtocolTab}
+                t={t}
               />
             ))}
           </div>
@@ -183,7 +187,7 @@ export function ServicesTab() {
 
       {protocols.length === 0 && (
         <div className="text-[11px] text-muted-foreground">
-          loading services…
+          {t("services.loadingServices")}
         </div>
       )}
     </div>

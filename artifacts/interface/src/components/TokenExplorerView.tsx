@@ -29,6 +29,7 @@ import {
 } from "./report/security";
 import { Markdown } from "./report/Markdown";
 import type { ChartPoint, ReportData } from "./report/types";
+import { useT, useLang } from "@/i18n";
 
 type TrendingToken = {
   tokenAddress: string;
@@ -166,14 +167,14 @@ function TokenAvatar({
   );
 }
 
-const COLUMNS: Array<{ key: SortKey; label: string }> = [
-  { key: "marketCap", label: "mkt cap" },
-  { key: "liquidityUsd", label: "liquidity" },
-  { key: "totalVolume24h", label: "24h vol" },
-  { key: "pricePercentChange1h", label: "1h" },
-  { key: "pricePercentChange24h", label: "24h" },
-  { key: "holders", label: "holders" },
-  { key: "createdAt", label: "age" },
+const COLUMNS: Array<{ key: SortKey; labelKey: string }> = [
+  { key: "marketCap", labelKey: "colMktCap" },
+  { key: "liquidityUsd", labelKey: "colLiquidity" },
+  { key: "totalVolume24h", labelKey: "col24hVol" },
+  { key: "pricePercentChange1h", labelKey: "col1h" },
+  { key: "pricePercentChange24h", labelKey: "col24h" },
+  { key: "holders", labelKey: "colHolders" },
+  { key: "createdAt", labelKey: "colAge" },
 ];
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -184,16 +185,17 @@ const TONE_CLASS: Record<Tone, string> = {
 };
 
 function SecurityBadges({ s }: { s: TokenSecurity }) {
+  const t = useT();
   const items = deriveSecurityItems(s);
 
   return (
     <div className="mb-3">
       <div className="mb-1.5 flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          contract security
+          {t("tokens.contractSecurity")}
         </span>
         <span className="font-mono text-[9px] text-muted-foreground">
-          via goplus
+          {t("tokens.viaGoplus")}
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -223,6 +225,8 @@ function TokenReportPanel({
   onClose?: () => void;
   onBuy: (token: TrendingToken) => void;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const [text, setText] = useState("");
   const [status, setStatus] = useState<"streaming" | "done" | "error">(
     "streaming",
@@ -324,11 +328,12 @@ function TokenReportPanel({
             pricePercentChange1h: token.pricePercentChange1h,
             pricePercentChange24h: token.pricePercentChange24h,
             totalVolume24h: token.totalVolume24h,
+            lang,
           }),
           signal: abort.signal,
         });
         if (resp.status === 429) {
-          setErrorMsg("rate limit reached — wait a bit before generating more reports.");
+          setErrorMsg(t("tokens.rateLimitReached"));
           setStatus("error");
           return;
         }
@@ -358,9 +363,7 @@ function TokenReportPanel({
         } else if (!sawError) {
           // Stream ended without a terminal `done` event — the report is
           // truncated. Surface it as an error so PDF/share stay disabled.
-          setErrorMsg(
-            "report ended early — connection dropped before it finished. try again.",
-          );
+          setErrorMsg(t("tokens.reportEndedEarly"));
           setStatus("error");
         }
       } catch (err) {
@@ -371,7 +374,7 @@ function TokenReportPanel({
     })();
 
     return () => abort.abort();
-  }, [token]);
+  }, [token, lang]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -398,7 +401,7 @@ function TokenReportPanel({
       const { downloadReportPdf } = await import("./report/ReportPdf");
       await downloadReportPdf(buildReportData());
     } catch {
-      setPdfError("could not generate pdf — try again.");
+      setPdfError(t("tokens.pdfGenerateError"));
     } finally {
       setPdfBusy("idle");
     }
@@ -414,21 +417,22 @@ function TokenReportPanel({
       const shared = await shareReportPdf(data);
       if (!shared) await downloadReportPdf(data);
     } catch {
-      setPdfError("could not share pdf — try again.");
+      setPdfError(t("tokens.pdfShareError"));
     } finally {
       setPdfBusy("idle");
     }
   };
 
-  const stats: { label: string; value: string; tone?: "up" | "down" }[] = [
-    { label: "price", value: fmtUsd(token.usdPrice) },
-    { label: "mkt cap", value: fmtUsd(token.marketCap, true) },
-    { label: "liquidity", value: fmtUsd(token.liquidityUsd, true) },
-    { label: "24h onchain vol", value: fmtUsd(token.totalVolume24h, true) },
-    { label: "holders", value: fmtNum(token.holders) },
-    { label: "age", value: fmtAge(token.createdAt) },
+  const stats: { id: string; label: string; value: string; tone?: "up" | "down" }[] = [
+    { id: "price", label: t("tokens.colPrice"), value: fmtUsd(token.usdPrice) },
+    { id: "mktCap", label: t("tokens.colMktCap"), value: fmtUsd(token.marketCap, true) },
+    { id: "liquidity", label: t("tokens.colLiquidity"), value: fmtUsd(token.liquidityUsd, true) },
+    { id: "vol24h", label: t("tokens.stat24hOnchainVol"), value: fmtUsd(token.totalVolume24h, true) },
+    { id: "holders", label: t("tokens.colHolders"), value: fmtNum(token.holders) },
+    { id: "age", label: t("tokens.colAge"), value: fmtAge(token.createdAt) },
     {
-      label: "1h",
+      id: "change1h",
+      label: t("tokens.col1h"),
       value: fmtPct(token.pricePercentChange1h),
       tone:
         token.pricePercentChange1h == null
@@ -438,7 +442,8 @@ function TokenReportPanel({
             : "down",
     },
     {
-      label: "24h",
+      id: "change24h",
+      label: t("tokens.col24h"),
       value: fmtPct(token.pricePercentChange24h),
       tone:
         token.pricePercentChange24h == null
@@ -469,11 +474,13 @@ function TokenReportPanel({
             </div>
             <div className="font-mono text-[10px] text-muted-foreground">
               {generatedAt
-                ? `generated ${generatedAt.toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}`
-                : "generating…"}
+                ? t("tokens.generatedAt", {
+                    time: generatedAt.toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }),
+                  })
+                : t("tokens.generating")}
             </div>
           </div>
         </div>
@@ -482,8 +489,8 @@ function TokenReportPanel({
             type="button"
             onClick={handleDownload}
             disabled={!ready || pdfBusy !== "idle"}
-            title="download pdf"
-            aria-label="download pdf"
+            title={t("tokens.downloadPdf")}
+            aria-label={t("tokens.downloadPdf")}
             className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 disabled:opacity-40 disabled:hover:bg-transparent"
           >
             {pdfBusy === "download" ? (
@@ -491,14 +498,14 @@ function TokenReportPanel({
             ) : (
               <Download className="h-3 w-3" />
             )}
-            download pdf
+            {t("tokens.downloadPdf")}
           </button>
           <button
             type="button"
             onClick={handleShare}
             disabled={!ready || pdfBusy !== "idle"}
-            title="share"
-            aria-label="share report"
+            title={t("tokens.share")}
+            aria-label={t("tokens.shareReport")}
             className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 disabled:opacity-40 disabled:hover:bg-transparent"
           >
             {pdfBusy === "share" ? (
@@ -506,20 +513,20 @@ function TokenReportPanel({
             ) : (
               <Share2 className="h-3 w-3" />
             )}
-            share
+            {t("tokens.share")}
           </button>
           <button
             type="button"
             onClick={() => onBuy(token)}
             className="font-mono text-xs text-muted-foreground hover:text-foreground hover:underline px-1"
           >
-            buy
+            {t("tokens.buy")}
           </button>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              aria-label="close report"
+              aria-label={t("tokens.closeReport")}
               className="rounded p-1 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -533,7 +540,9 @@ function TokenReportPanel({
           <iframe
             key={token.tokenAddress}
             src={`https://www.geckoterminal.com/base/tokens/${token.tokenAddress}?embed=1&info=0&swaps=0&light_chart=1`}
-            title={`${token.symbol || token.tokenAddress} chart`}
+            title={t("tokens.chartTitle", {
+              symbol: token.symbol || token.tokenAddress,
+            })}
             loading="lazy"
             className="h-[390px] w-full border-0 bg-background"
           />
@@ -569,20 +578,20 @@ function TokenReportPanel({
 
           {status === "error" ? (
             <div className="font-mono text-xs text-destructive">
-              error: {errorMsg || "failed to generate report"}
+              {t("tokens.errorPrefix")}: {errorMsg || t("tokens.failedToGenerateReport")}
             </div>
           ) : text ? (
             <Markdown source={text} />
           ) : (
             <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>generating report…</span>
+              <span>{t("tokens.generatingReport")}</span>
             </div>
           )}
           {status === "streaming" && text && (
             <div className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>writing…</span>
+              <span>{t("tokens.writing")}</span>
             </div>
           )}
         </div>
@@ -601,19 +610,20 @@ function ReportPanelPlaceholder({
   state: "loading" | "missing";
   address?: string | null;
 }) {
+  const t = useT();
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 border-l border-border bg-background px-6 text-center">
       {state === "loading" ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-            loading shared report…
+            {t("tokens.loadingSharedReport")}
           </div>
         </>
       ) : (
         <>
           <div className="font-mono text-xs text-destructive">
-            couldn't load this token's report
+            {t("tokens.couldntLoadReport")}
           </div>
           {address && (
             <div className="font-mono text-[10px] text-muted-foreground break-all">
@@ -621,7 +631,7 @@ function ReportPanelPlaceholder({
             </div>
           )}
           <div className="font-mono text-[10px] text-muted-foreground">
-            it may not be a base token, or its data is unavailable.
+            {t("tokens.notBaseTokenOrUnavailable")}
           </div>
         </>
       )}
@@ -638,31 +648,27 @@ const METHODOLOGY: Record<
   { title: string; source: string; filters: string; market: string }
 > = {
   moralis: {
-    title: "Trending tokens",
-    source: "Moralis trending-tokens API (chain: base).",
-    filters: "Surfaces tokens with recent traction. List cached ~1h.",
-    market:
-      "Price, market cap, liquidity and % change come from Moralis. Volume is the token's aggregate 24h onchain (dex) volume across all pools — it excludes cex trading.",
+    title: "methodologyMoralisTitle",
+    source: "methodologyMoralisSource",
+    filters: "methodologyMoralisFilters",
+    market: "methodologyMoralisMarket",
   },
   virtuals: {
-    title: "Graduated AI-agent tokens",
-    source:
-      "virtuals.io API (status=AVAILABLE, sorted by 24h volume — most actively traded first, any age).",
-    filters:
-      "Only graduated/tradeable tokens. Dead pairs hidden (< $10 24h volume). List cached ~1h.",
-    market:
-      "Price, market cap, liquidity and % change come from CoinGecko via each token's top onchain pool. Volume is the token's aggregate 24h onchain (dex) volume across all pools — it excludes cex trading. Name, logo and holder count come from virtuals.",
+    title: "methodologyVirtualsTitle",
+    source: "methodologyVirtualsSource",
+    filters: "methodologyVirtualsFilters",
+    market: "methodologyVirtualsMarket",
   },
   bankr: {
-    title: "Recent launches",
-    source: "Bankr recent-token-launches API (base).",
-    filters: "Dead pairs hidden (< $10 24h volume). List cached ~1h.",
-    market:
-      "Price, market cap, liquidity and % change come from CoinGecko via each launch's top onchain pool. Volume is the token's aggregate 24h onchain (dex) volume across all pools — it excludes cex trading.",
+    title: "methodologyBankrTitle",
+    source: "methodologyBankrSource",
+    filters: "methodologyBankrFilters",
+    market: "methodologyBankrMarket",
   },
 };
 
 export function TokenExplorerView() {
+  const t = useT();
   const [source, setSource] = useState<Source>("moralis");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("totalVolume24h");
@@ -692,7 +698,7 @@ export function TokenExplorerView() {
   });
 
   const buyToken = (token: TrendingToken) => {
-    setChatInput(`buy 1 USDC of ${token.tokenAddress}`);
+    setChatInput(t("tokens.buyCommand", { address: token.tokenAddress }));
     // Reveal a view that contains the chat input: on mobile chat is its own
     // tab, on desktop it lives inside the home 3-column layout.
     setActive(tabs.some((t) => t.id === "chat") ? "chat" : "home");
@@ -819,12 +825,12 @@ export function TokenExplorerView() {
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 shrink-0">
           <div>
             <div className="flex items-center gap-1.5">
-              <h2 className="font-sans text-sm font-medium">research · base</h2>
+              <h2 className="font-sans text-sm font-medium">{t("tokens.researchBase")}</h2>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    aria-label="data methodology"
+                    aria-label={t("tokens.dataMethodology")}
                     className="text-muted-foreground hover:text-foreground"
                   >
                     <Info className="h-3.5 w-3.5" />
@@ -836,18 +842,18 @@ export function TokenExplorerView() {
                   className="max-w-xs bg-popover text-popover-foreground border border-border shadow-md"
                 >
                   <div className="space-y-1.5 py-0.5 font-sans text-[11px] leading-snug">
-                    <p className="font-medium">{METHODOLOGY[source].title}</p>
+                    <p className="font-medium">{t(`tokens.${METHODOLOGY[source].title}`)}</p>
                     <p>
-                      <span className="text-muted-foreground">source: </span>
-                      {METHODOLOGY[source].source}
+                      <span className="text-muted-foreground">{t("tokens.sourceLabel")} </span>
+                      {t(`tokens.${METHODOLOGY[source].source}`)}
                     </p>
                     <p>
-                      <span className="text-muted-foreground">filters: </span>
-                      {METHODOLOGY[source].filters}
+                      <span className="text-muted-foreground">{t("tokens.filtersLabel")} </span>
+                      {t(`tokens.${METHODOLOGY[source].filters}`)}
                     </p>
                     <p>
-                      <span className="text-muted-foreground">market data: </span>
-                      {METHODOLOGY[source].market}
+                      <span className="text-muted-foreground">{t("tokens.marketDataLabel")} </span>
+                      {t(`tokens.${METHODOLOGY[source].market}`)}
                     </p>
                   </div>
                 </TooltipContent>
@@ -855,10 +861,10 @@ export function TokenExplorerView() {
             </div>
             <p className="font-mono text-[10px] text-muted-foreground">
               {source === "bankr"
-                ? "recent launches via bankr — click a token for a fresh ai report"
+                ? t("tokens.subtitleBankr")
                 : source === "virtuals"
-                  ? "ai agent tokens via virtuals — click a token for a fresh ai report"
-                  : "trending via moralis — click a token for a fresh ai report"}
+                  ? t("tokens.subtitleVirtuals")
+                  : t("tokens.subtitleMoralis")}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -887,7 +893,7 @@ export function TokenExplorerView() {
               className="h-7 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className={cn("h-3 w-3 mr-1", isFetching && "animate-spin")} />
-              refresh
+              {t("tokens.refresh")}
             </Button>
           </div>
         </div>
@@ -895,43 +901,43 @@ export function TokenExplorerView() {
         <div className="border-b border-border/50 px-4 py-3 shrink-0">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             <FilterField
-              label="min liq $"
+              label={t("tokens.filterMinLiq")}
               value={filters.minLiquidity}
               onChange={(v) => setFilter("minLiquidity", v)}
               placeholder="0"
             />
             <FilterField
-              label="min 24h vol $"
+              label={t("tokens.filterMin24hVol")}
               value={filters.minVolume24h}
               onChange={(v) => setFilter("minVolume24h", v)}
               placeholder="0"
             />
             <FilterField
-              label="min mkt cap $"
+              label={t("tokens.filterMinMktCap")}
               value={filters.minMarketCap}
               onChange={(v) => setFilter("minMarketCap", v)}
               placeholder="0"
             />
             <FilterField
-              label="min holders"
+              label={t("tokens.filterMinHolders")}
               value={filters.minHolders}
               onChange={(v) => setFilter("minHolders", v)}
               placeholder="0"
             />
             <FilterField
-              label="max age (d)"
+              label={t("tokens.filterMaxAge")}
               value={filters.maxAgeDays}
               onChange={(v) => setFilter("maxAgeDays", v)}
               placeholder="∞"
             />
             <FilterField
-              label="min 1h %"
+              label={t("tokens.filterMin1h")}
               value={filters.min1hChange}
               onChange={(v) => setFilter("min1hChange", v)}
               placeholder="-100"
             />
             <FilterField
-              label="min 24h %"
+              label={t("tokens.filterMin24h")}
               value={filters.min24hChange}
               onChange={(v) => setFilter("min24hChange", v)}
               placeholder="-100"
@@ -943,7 +949,7 @@ export function TokenExplorerView() {
               onClick={() => setFilters(EMPTY_FILTERS)}
               className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
             >
-              clear filters →
+              {t("tokens.clearFilters")}
             </button>
           )}
         </div>
@@ -954,16 +960,16 @@ export function TokenExplorerView() {
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>
                 {source === "bankr"
-                  ? "loading recent launches…"
+                  ? t("tokens.loadingRecentLaunches")
                   : source === "virtuals"
-                    ? "loading virtuals tokens…"
-                    : "loading trending tokens…"}
+                    ? t("tokens.loadingVirtualsTokens")
+                    : t("tokens.loadingTrendingTokens")}
               </span>
             </div>
           ) : isError ? (
             <div className="px-4 py-16 text-center">
               <p className="font-mono text-xs text-destructive">
-                {error instanceof Error ? error.message : "failed to load tokens"}
+                {error instanceof Error ? error.message : t("tokens.failedToLoadTokens")}
               </p>
               <Button
                 variant="ghost"
@@ -971,28 +977,28 @@ export function TokenExplorerView() {
                 onClick={handleRefresh}
                 className="mt-3 font-mono text-[11px]"
               >
-                retry
+                {t("common.retry")}
               </Button>
             </div>
           ) : rows.length === 0 ? (
             <div className="px-4 py-16 text-center font-mono text-xs text-muted-foreground">
               {anyFilter
-                ? "no tokens match your filters."
+                ? t("tokens.noTokensMatchFilters")
                 : source === "bankr"
-                  ? "no recent launches right now."
+                  ? t("tokens.noRecentLaunches")
                   : source === "virtuals"
-                    ? "no virtuals tokens right now."
-                    : "no trending tokens right now."}
+                    ? t("tokens.noVirtualsTokens")
+                    : t("tokens.noTrendingTokens")}
             </div>
           ) : (
             <table className="w-full border-collapse text-left">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-border">
                   <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    token
+                    {t("tokens.colToken")}
                   </th>
                   <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    price
+                    {t("tokens.colPrice")}
                   </th>
                   {COLUMNS.map((c) => {
                     const active = c.key === sortKey;
@@ -1009,7 +1015,7 @@ export function TokenExplorerView() {
                             active ? "text-foreground" : "text-muted-foreground",
                           )}
                         >
-                          {c.label}
+                          {t(`tokens.${c.labelKey}`)}
                           {active &&
                             (sortDir === "desc" ? (
                               <ArrowDown className="h-3 w-3" />

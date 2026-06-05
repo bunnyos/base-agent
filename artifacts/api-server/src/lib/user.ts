@@ -40,6 +40,19 @@ export function getCurrentUserId(): string {
   return uid;
 }
 
+// Returns the active user's connected wallet address (lowercased), or null if
+// the user has no wallet (e.g. the synthetic local user). Used by on-chain
+// write tools that need the trader's address to build calldata.
+export async function getCurrentUserWallet(): Promise<string | null> {
+  const uid = getCurrentUserId();
+  const [row] = await db
+    .select({ walletAddress: usersTable.walletAddress })
+    .from(usersTable)
+    .where(eq(usersTable.id, uid))
+    .limit(1);
+  return row?.walletAddress ?? null;
+}
+
 // Upsert a wallet-authenticated user. Returns the existing or new userId.
 // Caller must lowercase the address; we store it lowercased and also create
 // the per-user settings row so downstream reads have a default to hydrate.

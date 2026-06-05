@@ -4,6 +4,7 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { playSound } from "@/lib/sound";
+import { useT, useLang, type TFn } from "@/i18n";
 import {
   ArrowUp,
   ChevronRight,
@@ -70,10 +71,10 @@ type StreamEvent =
 const APPROVAL_URL_RE =
   /(https:\/\/(?:account\.base\.app|base\.org|www\.base\.org|wallet\.base\.org|account\.base\.org|keys\.coinbase\.com|wallet\.coinbase\.com)\/[^\s)\]"']+)/g;
 
-function approvalLabel(url: string): string {
+function approvalLabel(url: string, t: TFn): string {
   if (url.includes("base.app") || url.includes("base.org"))
-    return "approve transaction in base app →";
-  return "open base app to approve →";
+    return t("chat.approveTransactionInBaseApp");
+  return t("chat.openBaseAppToApprove");
 }
 
 // Open the wallet approval URL as a centered popup window instead of a new
@@ -177,6 +178,7 @@ function ApprovalLink({ url }: { url: string }) {
   // wallets) — instead the user clicks "done" themselves, and on that click
   // we fire one status check and surface a congrats / failure / unknown
   // message based on what the MCP returns.
+  const t = useT();
   const requestId = extractRequestId(url);
   const [state, setState] = useState<DoneState>({ kind: "idle" });
 
@@ -208,7 +210,7 @@ function ApprovalLink({ url }: { url: string }) {
       } else if (cls === "failed") {
         // Try to surface a short reason from the payload.
         const m = raw.match(/"(?:error|message|reason)"\s*:\s*"([^"]{1,160})"/i);
-        setState({ kind: "failed", reason: m?.[1] ?? "transaction failed" });
+        setState({ kind: "failed", reason: m?.[1] ?? t("chat.transactionFailed") });
       } else {
         setState({ kind: "pending" });
       }
@@ -227,7 +229,7 @@ function ApprovalLink({ url }: { url: string }) {
         disabled={interacted}
         className="block w-full px-3 py-2 bg-accent text-accent-foreground rounded-md text-xs font-sans font-medium hover:bg-accent/90 transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {approvalLabel(url)}
+        {approvalLabel(url, t)}
       </button>
       <div className="flex items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-widest text-center">
         {state.kind === "idle" && (
@@ -236,20 +238,20 @@ function ApprovalLink({ url }: { url: string }) {
             onClick={markDone}
             className="px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
           >
-            click here once done →
+            {t("chat.clickHereOnceDone")}
           </button>
         )}
         {state.kind === "checking" && (
           <>
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            <span className="text-muted-foreground">checking on-chain…</span>
+            <span className="text-muted-foreground">{t("chat.checkingOnChain")}</span>
           </>
         )}
         {state.kind === "confirmed" && (
           <div className="flex flex-col items-center gap-0.5">
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-green" />
-              <span className="text-green">congrats — transaction confirmed</span>
+              <span className="text-green">{t("chat.transactionConfirmed")}</span>
             </div>
             {state.txHash && (
               <a
@@ -258,7 +260,7 @@ function ApprovalLink({ url }: { url: string }) {
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline normal-case tracking-normal"
               >
-                view on basescan ↗
+                {t("chat.viewOnBasescan")}
               </a>
             )}
           </div>
@@ -268,7 +270,7 @@ function ApprovalLink({ url }: { url: string }) {
             <div className="flex items-center gap-1.5">
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               <span className="text-muted-foreground">
-                still pending — check your wallet
+                {t("chat.stillPendingCheckWallet")}
               </span>
             </div>
             <button
@@ -276,7 +278,7 @@ function ApprovalLink({ url }: { url: string }) {
               onClick={markDone}
               className="px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 normal-case tracking-normal"
             >
-              check again
+              {t("chat.checkAgain")}
             </button>
           </div>
         )}
@@ -285,7 +287,7 @@ function ApprovalLink({ url }: { url: string }) {
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
               <span className="text-destructive">
-                {state.reason || "transaction failed"}
+                {state.reason || t("chat.transactionFailed")}
               </span>
             </div>
           </div>
@@ -293,7 +295,7 @@ function ApprovalLink({ url }: { url: string }) {
         {state.kind === "unknown" && (
           <div className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-green" />
-            <span className="text-green">marked done</span>
+            <span className="text-green">{t("chat.markedDone")}</span>
           </div>
         )}
       </div>
@@ -326,6 +328,7 @@ function summarizeArgs(args: unknown): string {
 }
 
 function ToolCallChip({ tool }: { tool: ToolEvent }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="my-1 rounded border border-border bg-foreground/5 overflow-hidden">
@@ -354,7 +357,7 @@ function ToolCallChip({ tool }: { tool: ToolEvent }) {
         </span>
         {tool.done && (
           <span className="font-mono text-[10px] text-muted-foreground">
-            {tool.isError ? "err" : "ok"}
+            {tool.isError ? t("chat.toolErr") : t("chat.toolOk")}
           </span>
         )}
       </button>
@@ -380,12 +383,13 @@ function ToolCallChip({ tool }: { tool: ToolEvent }) {
 // whether the agent is still working or has stopped — instead of having to
 // infer it from the disabled input box or a transient cursor blink.
 function BunnyStatusLine({ message }: { message: ChatMessage }) {
-  const activeTool = (message.tools ?? []).find((t) => !t.done);
+  const t = useT();
+  const activeTool = (message.tools ?? []).find((tool) => !tool.done);
   if (message.streaming) {
     let label: string;
-    if (activeTool) label = `running ${activeTool.name}…`;
-    else if (message.thinking || !message.text) label = "thinking…";
-    else label = "responding…";
+    if (activeTool) label = t("chat.runningTool", { name: activeTool.name });
+    else if (message.thinking || !message.text) label = t("chat.thinking");
+    else label = t("chat.responding");
     return (
       <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 pt-1">
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -402,7 +406,7 @@ function BunnyStatusLine({ message }: { message: ChatMessage }) {
     return (
       <div className="font-mono text-[10px] uppercase tracking-widest text-destructive flex items-center gap-1.5 pt-1">
         <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
-        <span>stopped</span>
+        <span>{t("chat.stopped")}</span>
       </div>
     );
   }
@@ -412,19 +416,21 @@ function BunnyStatusLine({ message }: { message: ChatMessage }) {
     return (
       <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 pt-1">
         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-        <span>stopped</span>
+        <span>{t("chat.stopped")}</span>
       </div>
     );
   }
   return (
     <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 pt-1">
       <span className="h-1.5 w-1.5 rounded-full bg-green" />
-      <span>done</span>
+      <span>{t("chat.statusDone")}</span>
     </div>
   );
 }
 
 export function ChatPanel() {
+  const t = useT();
+  const { lang } = useLang();
   const queryClient = useQueryClient();
   const chatInput = useAppStore((state) => state.chatInput);
   const setChatInput = useAppStore((state) => state.setChatInput);
@@ -668,7 +674,7 @@ export function ChatPanel() {
       const resp = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText, history }),
+        body: JSON.stringify({ message: userText, history, lang }),
         signal: abort.signal,
       });
       if (!resp.ok || !resp.body) {
@@ -695,7 +701,7 @@ export function ChatPanel() {
 
       if (sawError) {
         setLastStatus("error");
-        addFeedEntry({ message: "Failed to respond", status: "error" });
+        addFeedEntry({ message: t("chat.feedFailedToRespond"), status: "error" });
       } else if (sawDone) {
         setLastStatus("done");
         let status: "success" | "pending" | "error" = "success";
@@ -703,7 +709,7 @@ export function ChatPanel() {
         APPROVAL_URL_RE.lastIndex = 0;
         if (hasApproval) status = "pending";
         else if (/error|failed/i.test(finalResponse)) status = "error";
-        addFeedEntry({ message: "Responded to user", status });
+        addFeedEntry({ message: t("chat.feedRespondedToUser"), status });
       } else {
         setLastStatus("error");
         mutateBunny((m) => ({
@@ -712,7 +718,7 @@ export function ChatPanel() {
           thinking: false,
           streaming: false,
         }));
-        addFeedEntry({ message: "Stream interrupted", status: "error" });
+        addFeedEntry({ message: t("chat.feedStreamInterrupted"), status: "error" });
       }
 
     } catch (err) {
@@ -755,7 +761,7 @@ export function ChatPanel() {
       <div className="px-4 py-3 border-b border-border/50 shrink-0 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="font-sans text-xs font-medium text-muted-foreground uppercase tracking-widest">
-            chat
+            {t("chat.title")}
           </h2>
         </div>
         <div className="flex items-center gap-1">
@@ -766,7 +772,7 @@ export function ChatPanel() {
             className="h-7 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground"
           >
             <Plus className="h-3 w-3 mr-1" />
-            new chat
+            {t("chat.newChat")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -776,7 +782,7 @@ export function ChatPanel() {
                 className="h-7 px-2 font-mono text-[11px] text-muted-foreground hover:text-foreground"
               >
                 <History className="h-3 w-3 mr-1" />
-                history
+                {t("chat.history")}
                 {chatList && chatList.length > 0 && (
                   <span className="ml-1 text-muted-foreground/60">
                     ({chatList.length})
@@ -786,12 +792,12 @@ export function ChatPanel() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72 max-h-96 overflow-y-auto">
               <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                saved chats
+                {t("chat.savedChats")}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {(!chatList || chatList.length === 0) && (
                 <div className="px-2 py-3 font-mono text-[11px] text-muted-foreground text-center">
-                  no saved chats yet
+                  {t("chat.noSavedChatsYet")}
                 </div>
               )}
               {chatList?.map((c) => (
@@ -812,7 +818,7 @@ export function ChatPanel() {
                   <button
                     onClick={(e) => void deleteChat(c.id, e)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive p-1 -m-1"
-                    aria-label="delete chat"
+                    aria-label={t("chat.deleteChat")}
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -827,7 +833,7 @@ export function ChatPanel() {
         {messages.length === 0 && (
           <div className="h-full flex items-center justify-center px-6">
             <p className="font-mono text-xs text-muted-foreground text-center max-w-sm leading-relaxed">
-              bunnyOS can interface directly with protocols and services you enable.
+              {t("chat.emptyState")}
             </p>
           </div>
         )}
@@ -871,7 +877,7 @@ export function ChatPanel() {
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isStreaming}
-            placeholder="type your instructions here"
+            placeholder={t("chat.inputPlaceholder")}
             className="flex-1 min-w-0 h-9 max-h-[140px] bg-transparent px-1 py-2 font-mono text-sm leading-5 resize-none focus:outline-none disabled:opacity-50"
             rows={1}
           />
@@ -879,7 +885,7 @@ export function ChatPanel() {
             type="button"
             onClick={() => void handleSubmit()}
             disabled={!chatInput.trim() || isStreaming}
-            aria-label="send"
+            aria-label={t("chat.send")}
             className={cn(
               "shrink-0 h-9 w-9 rounded-md p-0 grid place-items-center",
               "bg-accent text-accent-foreground shadow-sm",

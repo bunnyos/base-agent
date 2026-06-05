@@ -7,6 +7,17 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-05
+
+### Added
+- **Perpetuals trading** — a new Perps tab covering perps markets on [Avantis](https://avantisfi.com), with live prices, market listings, and your open positions. The agent gains a matching set of Avantis tools to open and manage positions (execution is still approved in the Base app).
+- **Technical analysis** — a streaming TA panel for perps markets, with indicators computed from [Pyth](https://pyth.network) price history; the same analysis is available to the agent as a tool.
+- **Multi-language interface** — the UI is fully internationalized with English, Korean, and Chinese, selectable from a language switcher and remembered per user.
+
+### Changed
+- **Database schema** — added `user_settings.lang` to persist each user's interface language. Apply with `pnpm --filter @workspace/db run push`.
+- Expanded the agent's built-in (native) tools with the new perps and technical-analysis capabilities.
+
 ## [0.2.0] - 2026-06-01
 
 ### Added
@@ -36,6 +47,7 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 - First-party tool sources: Base account MCP, Moralis, CoinMarketCap, DeFi Llama, Bankr, and Morpho.
 - Security model: no private keys on the system (execution is approved in the Base app); stored API keys and wallet tokens encrypted at rest (AES-256-GCM), with HMAC-signed sessions.
 
-[Unreleased]: https://github.com/bunnyos/base-agent/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/bunnyos/base-agent/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bunnyos/base-agent/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bunnyos/base-agent/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bunnyos/base-agent/releases/tag/v0.1.0

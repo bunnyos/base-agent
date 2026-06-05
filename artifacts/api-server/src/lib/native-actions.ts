@@ -13,9 +13,6 @@
 // and a null allowlist avoids brittle exact tool-name matching across protocol
 // toggles.
 
-const M5 = 5 * 60_000;
-const M10 = 10 * 60_000;
-const M30 = 30 * 60_000;
 const H1 = 60 * 60_000;
 const H6 = 6 * 60 * 60_000;
 const D1 = 24 * 60 * 60_000;
@@ -31,106 +28,40 @@ export interface NativeActionDef {
   toolAllowlist: string[] | null;
 }
 
+// The complete built-in action set. Keep this list small and focused: the four
+// jobs a user actually wants out of the box — find yields, find trending tokens
+// to buy on base, fund the wallet when it is empty, and a daily summary.
 export const NATIVE_ACTIONS: NativeActionDef[] = [
-  // ----- new tokens to buy (most important) -----
   {
-    key: "fresh-launch-radar",
-    name: "fresh launch radar",
+    key: "find-yields",
+    name: "yield finder",
+    intervalMs: H6,
+    toolAllowlist: null,
+    instructions:
+      "compare my best current base position apy (from moralis wallet defi positions) against the top usdc yields on base from defi llama. if a base option's apy beats my current best by more than 1.5 percentage points, emit a SEPARATE recommendation for each such opportunity — one pool per recommendation — naming source and target and citing both apys. if i am holding idle (unlent) stablecoins worth more than 5% of my total wallet value, also recommend the single best risk-adjusted base supply market for them.",
+  },
+  {
+    key: "trending-buys",
+    name: "trending tokens",
     intervalMs: H1,
     toolAllowlist: null,
     instructions:
-      "from moralis trending tokens on base, find tokens created within the last 48h with liquidity over $150k. recommend the top 3 by 24h volume, with symbol, liquidity, and 24h change.",
+      "pull trending tokens on base via moralis. pick the strongest candidates worth considering as buys and emit a SEPARATE recommendation for each token — never combine multiple tokens into one recommendation — citing 24h volume and 24h price change. prefer tokens with healthy depth (liquidity at least 10% of 24h volume) and skip any where the top holder owns more than 30% of supply or the token looks unverified. top 3 at most.",
   },
   {
-    key: "traction-breakout",
-    name: "traction breakout",
-    intervalMs: H1,
-    toolAllowlist: null,
-    instructions:
-      "pull trending tokens on base via moralis. recommend any token with 24h volume over $1M, liquidity over $250k, and 24h price change over 15%. skip liquidity under $100k. top 3 only.",
-  },
-  {
-    key: "liquidity-floor-screen",
-    name: "safer entries",
+    key: "fund-wallet",
+    name: "fund wallet",
     intervalMs: H6,
     toolAllowlist: null,
     instructions:
-      "from moralis trending tokens on base, list tokens where liquidity is over $500k and holders is over 1000. recommend the two cleanest as lower-risk entries, citing liquidity and holder count.",
+      "check my moralis wallet balances (native eth and tokens). if the wallet is empty — no eth for gas and effectively no token value — post a warn alert telling me to fund the wallet (buy or transfer assets onto base) before bunnyOS can do anything useful. if i hold assets but my eth for gas has run down to near zero, post an info alert to top up a little eth for gas. stop silently if the wallet is funded.",
   },
   {
-    key: "rug-filter",
-    name: "rug filter",
-    intervalMs: H6,
-    toolAllowlist: null,
-    instructions:
-      "for the top trending base tokens, pull moralis token metadata and holders. post a critical alert on any where the top holder owns more than 30% of supply or the token looks unverified. protective only.",
-  },
-
-  // ----- yield (most important) -----
-  {
-    key: "position-yield-monitor",
-    name: "position yield monitor",
-    intervalMs: H6,
-    toolAllowlist: null,
-    instructions:
-      "pull my wallet defi positions via moralis. if the apy on any position drops below 4%, post an alert and, if defi llama shows a clearly better base option, recommend moving into it.",
-  },
-  {
-    key: "rotation-scout",
-    name: "yield rotation",
-    intervalMs: H6,
-    toolAllowlist: null,
-    instructions:
-      "compare my best current position apy (from moralis wallet defi positions) against the top usdc yields on base from defi llama. if the gap is over 150 bps, recommend rotating, naming source and target.",
-  },
-  {
-    key: "idle-balance-to-yield",
-    name: "idle cash to yield",
-    intervalMs: H6,
-    toolAllowlist: null,
-    instructions:
-      "check my moralis wallet tokens. if i am holding more than $200 of an unlent stablecoin, recommend the best risk-adjusted base supply market for it using defi llama.",
-  },
-  {
-    key: "unclaimed-rewards",
-    name: "unclaimed rewards",
+    key: "daily-summary",
+    name: "daily summary",
     intervalMs: D1,
     toolAllowlist: null,
     instructions:
-      "check my moralis wallet defi positions for claimable rewards. if unclaimed rewards are worth more than $25, recommend claiming and suggest where to redeploy them.",
-  },
-
-  // ----- portfolio (daily digests) -----
-  {
-    key: "defi-summary-digest",
-    name: "defi summary digest",
-    intervalMs: D1,
-    toolAllowlist: null,
-    instructions:
-      "once a day, pull my moralis wallet defi summary and post an info alert with total deployed value, total unclaimed rewards, and weighted apy across protocols.",
-  },
-  {
-    key: "pnl-digest",
-    name: "pnl digest",
-    intervalMs: D1,
-    toolAllowlist: null,
-    instructions:
-      "once a day, pull my moralis wallet profitability summary and post an info alert with net realized and unrealized pnl, plus my best and worst position.",
-  },
-  {
-    key: "holdings-drift",
-    name: "holdings drift",
-    intervalMs: D1,
-    toolAllowlist: null,
-    instructions:
-      "from my moralis wallet tokens, if any single token exceeds 40% of total wallet value, recommend a rebalance target to bring it back in line.",
-  },
-  {
-    key: "gas-reserve",
-    name: "gas reserve",
-    intervalMs: H6,
-    toolAllowlist: null,
-    instructions:
-      "check my moralis wallet native balance. if my eth for gas drops below a safe floor (about 0.002 eth), post a warn alert to top up before i get stuck mid-transaction.",
+      "once a day, pull my moralis wallet defi summary and profitability summary and post a single info alert summarizing total deployed value, weighted apy, unclaimed rewards, and net pnl with my best and worst position. info only — do not emit recommendations.",
   },
 ];

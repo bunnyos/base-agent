@@ -9,7 +9,7 @@ import {
   type CoinGeckoOhlcvPoint,
 } from "../lib/coingecko";
 import { getTokenSecurity, getTokenSecuritySafe, summarizeSecurity } from "../lib/goplus";
-import { streamBunny } from "../lib/bunny-agent";
+import { streamBunny, normalizeAgentLang, type AgentLang } from "../lib/bunny-agent";
 import { take } from "../lib/rate-limit";
 import { getCurrentUserId } from "../lib/user";
 import { isProtocolEnabled } from "../lib/settings";
@@ -728,7 +728,11 @@ function fmtAge(createdAt: number | null | undefined): string {
   return `${Math.round(days)}d old`;
 }
 
-function buildReportPrompt(t: ReportTokenInput, securitySummary?: string): string {
+function buildReportPrompt(
+  t: ReportTokenInput,
+  securitySummary?: string,
+  lang: AgentLang = "en",
+): string {
   const lines = [
     `write a professional but plain-spoken research brief for this base token. output github-flavored markdown. keep the prose lowercase (brand voice), tight, and skimmable.`,
     ``,
@@ -766,6 +770,22 @@ function buildReportPrompt(t: ReportTokenInput, securitySummary?: string): strin
     ``,
     `use **bold** for emphasis on key numbers or flags. do not give financial advice or price predictions. do not propose or prepare any transaction. keep the whole brief under ~16 short lines.`,
   );
+  if (lang === "zh") {
+    lines.push(
+      ``,
+      `重要（语言）：用简体中文撰写整篇简报。四个小标题写作 "## 概要"、"## 市场"、"## 风险"、"## 结论"。忽略上面关于全部小写的要求。代币符号、合约地址、数字、URL、协议名称保留原文。结论以加粗行结尾，写作 "**相对风险：低 | 中 | 高**"（三选一），其后跟一句简短理由。`,
+    );
+  } else if (lang === "ko") {
+    lines.push(
+      ``,
+      `중요(언어): 전체 브리프를 한국어로 작성하세요. 네 개의 제목은 "## 요약"、"## 시장"、"## 리스크"、"## 결론"으로 작성합니다. 위의 소문자 규칙은 무시하세요. 토큰 티커, 컨트랙트 주소, 숫자, URL, 프로토콜 이름은 원문 그대로 두세요. 결론은 "**상대 리스크: 낮음 | 중간 | 높음**" 형식의 굵은 줄로 끝내고 한 구절의 이유를 덧붙이세요.`,
+    );
+  } else {
+    lines.push(
+      ``,
+      `important (language): write the entire brief in English, regardless of the language of any tool output or memory. keep token tickers, contract addresses, numbers, URLs, and protocol names in their original form.`,
+    );
+  }
   return lines.join("\n");
 }
 
@@ -813,14 +833,16 @@ router.post("/tokens/report/stream", async (req, res): Promise<void> => {
     clearInterval(keepAlive);
   });
 
+  const lang = normalizeAgentLang((body as { lang?: unknown }).lang);
   const security = await getTokenSecuritySafe(body.tokenAddress);
   const prompt = buildReportPrompt(
     body as ReportTokenInput,
     security ? summarizeSecurity(security) : undefined,
+    lang,
   );
 
   try {
-    for await (const ev of streamBunny(prompt)) {
+    for await (const ev of streamBunny(prompt, undefined, lang)) {
       if (closed) break;
       write(ev);
     }

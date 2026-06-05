@@ -15,6 +15,7 @@ export const userSettingsTable = pgTable("user_settings", {
   moralisApiKey: text("moralis_api_key"),
   coingeckoApiKey: text("coingecko_api_key"),
   model: text("model"),
+  lang: text("lang").default("zh"),
   memoryMd: text("memory_md").notNull().default(""),
   baseMcpSession: jsonb("base_mcp_session"),
   updatedAt: timestamp("updated_at", { withTimezone: true })

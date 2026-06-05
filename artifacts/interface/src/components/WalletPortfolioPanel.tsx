@@ -3,6 +3,7 @@ import { useGetBaseMcpStatus } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useTabs } from "./TabsContext";
+import { useT } from "@/i18n";
 
 type Wallets = {
   baseAccount?: { address?: string };
@@ -45,6 +46,7 @@ function StatusRow({
   p: ProtocolStatus;
   onOpen: (p: ProtocolStatus) => void;
 }) {
+  const t = useT();
   const status: "connected" | "available" | "error" | "off" = !p.enabled
     ? "off"
     : p.error
@@ -63,13 +65,13 @@ function StatusRow({
   const nameColor =
     status === "connected" ? "text-foreground" : "text-muted-foreground";
   const meta = !p.enabled
-    ? "off"
+    ? t("wallet.off")
     : p.connected
-      ? `${p.toolCount} tools`
+      ? t("wallet.toolCount", { count: p.toolCount })
       : p.requiresAuth
-        ? "not authorized"
+        ? t("wallet.notAuthorized")
         : p.error
-          ? "offline"
+          ? t("wallet.offline")
           : p.kind;
   return (
     <div
@@ -114,10 +116,11 @@ async function mcpCall<T = unknown>(
 }
 
 export function WalletPortfolioPanel() {
+  const t = useT();
   const { toast } = useToast();
   const { openTab } = useTabs();
   const openConfigure = () =>
-    openTab({ id: "settings", title: "configure", kind: "settings", closable: false });
+    openTab({ id: "settings", title: t("common.configure"), kind: "settings", closable: false });
   const openProtocolTab = (p: ProtocolStatus) =>
     openTab({
       id: `protocol:${p.id}`,
@@ -179,7 +182,7 @@ export function WalletPortfolioPanel() {
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast({ description: `${label} copied`, duration: 2000 });
+    toast({ description: t("wallet.copied", { label }), duration: 2000 });
   };
 
   const shortAddr = (a?: string) =>
@@ -190,7 +193,7 @@ export function WalletPortfolioPanel() {
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between mb-3">
           <span className="font-sans text-xs font-medium text-muted-foreground uppercase tracking-widest">
-            wallet
+            {t("wallet.wallet")}
           </span>
         </div>
 
@@ -201,7 +204,7 @@ export function WalletPortfolioPanel() {
               className="w-full px-3 py-2 bg-accent text-accent-foreground hover:opacity-90 rounded font-sans text-sm font-medium transition-opacity disabled:opacity-50"
               data-testid="button-connect-base"
             >
-              connect base account
+              {t("wallet.connectBaseAccount")}
             </button>
           </div>
         ) : (
@@ -212,17 +215,17 @@ export function WalletPortfolioPanel() {
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <button
-                  onClick={() => baseAddress && handleCopy(baseAddress, "Address")}
+                  onClick={() => baseAddress && handleCopy(baseAddress, t("wallet.address"))}
                   className="font-mono text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                   data-testid="button-copy-address"
                 >
-                  {loadingWallets ? "loading…" : shortAddr(baseAddress)}
+                  {loadingWallets ? t("common.loading") : shortAddr(baseAddress)}
                   <Copy className="h-2.5 w-2.5" />
                 </button>
                 <button
                   onClick={() => refetchPortfolio()}
                   className="text-muted-foreground hover:text-foreground"
-                  title="Refresh"
+                  title={t("wallet.refresh")}
                 >
                   <RefreshCw className="h-3 w-3" />
                 </button>
@@ -236,9 +239,9 @@ export function WalletPortfolioPanel() {
                 }
                 className="w-full px-3 py-2 mb-2 bg-foreground/10 hover:bg-foreground/20 rounded font-sans text-xs font-medium transition-colors inline-flex items-center justify-center gap-1.5"
                 data-testid="button-defi-debank"
-                title="view lending, staking, and lp positions on debank"
+                title={t("wallet.defiPositionsTitle")}
               >
-                defi positions
+                {t("wallet.defiPositions")}
                 <ExternalLink className="h-3 w-3" />
               </button>
             )}
@@ -246,9 +249,9 @@ export function WalletPortfolioPanel() {
               onClick={() => openExternal(BASE_APP_URL)}
               className="w-full px-3 py-2 bg-accent text-accent-foreground hover:opacity-90 rounded font-sans text-xs font-medium transition-opacity inline-flex items-center justify-center gap-1.5"
               data-testid="button-manage-base-account"
-              title="open base account for buy / send / swap / receive / settings"
+              title={t("wallet.manageInBaseAccountTitle")}
             >
-              manage in base account
+              {t("wallet.manageInBaseAccount")}
               <ExternalLink className="h-3 w-3" />
             </button>
           </>
@@ -258,14 +261,14 @@ export function WalletPortfolioPanel() {
       <div className="p-4 flex-1">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-sans text-xs font-medium text-muted-foreground uppercase tracking-widest">
-            status
+            {t("wallet.status")}
           </h2>
           <button
             type="button"
             onClick={openConfigure}
             className="font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
           >
-            configure ›
+            {t("wallet.configureArrow")}
           </button>
         </div>
         {(() => {
@@ -289,7 +292,7 @@ export function WalletPortfolioPanel() {
               {api.length > 0 && (
                 <div>
                   <h3 className="font-mono text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                    bunnyOS implementation
+                    {t("wallet.bunnyOsImplementation")}
                   </h3>
                   <div className="space-y-0.5">
                     {api.map((p) => (

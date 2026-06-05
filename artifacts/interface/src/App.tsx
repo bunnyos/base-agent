@@ -13,6 +13,7 @@ import { ConfigureView } from "./components/ConfigureView";
 import { ActionsBuilderView } from "./components/ActionsBuilderView";
 import { ActionsHistoryView } from "./components/ActionsHistoryView";
 import { TokenExplorerView } from "./components/TokenExplorerView";
+import { PerpsView } from "./components/PerpsView";
 import Landing from "./pages/Landing";
 import { useAuth } from "./hooks/useAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -48,6 +49,11 @@ const MOBILE_TAB_TITLES: Record<string, string> = {
   actions: "actions inbox",
   chat: "chat",
 };
+const MOBILE_TAB_TITLE_KEYS: Record<string, string> = {
+  wallet: "tabs.wallet",
+  actions: "tabs.actionsInbox",
+  chat: "tabs.chat",
+};
 
 function useMobilePaneTabs(isMobile: boolean): void {
   const { tabs, openTab, removeTab, setActive, activeId, reorderVisible } = useTabs();
@@ -59,6 +65,7 @@ function useMobilePaneTabs(isMobile: boolean): void {
           openTab({
             id,
             title: MOBILE_TAB_TITLES[id] ?? id,
+            titleKey: MOBILE_TAB_TITLE_KEYS[id],
             kind: id,
             closable: false,
           });
@@ -156,6 +163,7 @@ function TabContent() {
   if (active.kind === "actions-builder") return <ActionsBuilderView />;
   if (active.kind === "actions-history") return <ActionsHistoryView />;
   if (active.kind === "tokens") return <TokenExplorerView />;
+  if (active.kind === "perps") return <PerpsView />;
   if (active.kind === "protocol" && active.payload) {
     return <ProtocolTabView protocolId={active.payload.protocolId} />;
   }

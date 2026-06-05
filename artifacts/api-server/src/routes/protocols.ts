@@ -5,6 +5,8 @@ import { listMoralisTools, moralisStatus } from "../lib/moralis";
 import { listCoinGeckoTools, coinGeckoStatus } from "../lib/coingecko";
 import { listBankrTools, bankrStatus } from "../lib/bankr";
 import { listDefiLlamaTools, defiLlamaStatus } from "../lib/defillama";
+import { listAvantisTools, avantisStatus } from "../lib/avantis";
+import { listNativeTools, nativeToolsStatus } from "../lib/native-tools";
 import { isProtocolEnabled, setProtocolEnabled } from "../lib/settings";
 
 const router: IRouter = Router();
@@ -42,8 +44,12 @@ const PROTOCOL_DESCRIPTIONS: Record<string, string> = {
     "CoinGecko price + market data — native bunnyOS implementation. REQUIRED: bunnyOS needs a CoinGecko Demo key for token pricing, discovery, and global market context. CEX-grade endpoints: coin price by id, token price by contract address (defaults to Base), top market-cap listings (with category filters like base-ecosystem/meme-token), full coin metadata, search (resolve ticker → coin id), trending coins, and global market snapshot. On-chain endpoints (also require the demo key): live DEX token data and pool search — indexes brand-new launches fast, so it's the liquidity/price oracle for fresh tokens. Free Demo tier (no card required, ~30 req/min, get one at coingecko.com/en/api/pricing).",
   bankr:
     "Bankr token launches — native bunnyOS implementation. Single tool that returns the most recent (last ~50) token launches tracked by Bankr (https://bankr.bot). Public endpoint, no key required.",
+  native:
+    "bunnyOS native tools — our own composed functions, not thin wrappers around one API. Each tool fans out to the existing data sources and merges the results into a single answer. Currently: research_token aggregates onchain market data (price, liquidity, market cap, momentum, top pool — from CoinGecko) and contract security (honeypot, taxes, ownership, holder concentration — from GoPlus) for a Base token address in one call. No key required; degrades gracefully when an underlying source has no data.",
   defillama:
     "DeFi Llama — native bunnyOS implementation against the free public API (api.llama.fi + coins.llama.fi). Covers protocol TVL, chain TVL history, token prices (current/historical/chart), yield pools, stablecoins, DEX volumes, options, open interest, and fees/revenue. Large list endpoints accept `limit` and are trimmed/projected server-side. No API key required.",
+  avantis:
+    "Avantis perps — native bunnyOS implementation against Avantis's public, keyless APIs on Base. Market intelligence for the leverage/perpetuals DEX: list tradable pairs with leverage caps and open interest, full per-pair detail (OI long/short, utilization, hourly borrow fee, leverage tiers, spread, fees, liquidity, min size), live Pyth oracle prices, and any wallet's open positions / pending orders / PnL. Trading is supported: open and close positions are built as unsigned calldata via Avantis's official tx-builder and executed through Base MCP send_calls — Bunny never holds a key or broadcasts. No API key required.",
 };
 
 router.get("/protocols", async (_req, res): Promise<void> => {
@@ -54,6 +60,17 @@ router.get("/protocols", async (_req, res): Promise<void> => {
     const coingecko = coinGeckoStatus();
     const bankr = bankrStatus();
     const protocols: ProtocolStatus[] = [
+      {
+        id: "native",
+        label: "OS native",
+        kind: "token research",
+        connected: nativeToolsStatus().connected,
+        toolCount: nativeToolsStatus().toolCount,
+        requiresAuth: false,
+        enabled: isProtocolEnabled("native"),
+        source: "api" as const,
+        via: "native",
+      },
       {
         id: "base",
         label: "base mcp",
@@ -105,6 +122,17 @@ router.get("/protocols", async (_req, res): Promise<void> => {
         toolCount: bankr.toolCount,
         requiresAuth: false,
         enabled: isProtocolEnabled("bankr"),
+        source: "api" as const,
+        via: "native",
+      },
+      {
+        id: "avantis",
+        label: "avantis",
+        kind: "perps / leverage",
+        connected: avantisStatus().connected,
+        toolCount: avantisStatus().toolCount,
+        requiresAuth: false,
+        enabled: isProtocolEnabled("avantis"),
         source: "api" as const,
         via: "native",
       },
@@ -205,6 +233,32 @@ router.get("/protocols/:id/tools", async (req, res): Promise<void> => {
         source: "api",
         via: "native",
         description: PROTOCOL_DESCRIPTIONS["bankr"] ?? "",
+        tools: tools.map((t) => ({ name: t.name, description: t.description })),
+      });
+      return;
+    }
+    if (id === "avantis") {
+      const tools = listAvantisTools();
+      res.json({
+        id,
+        label: "avantis",
+        kind: "perps / leverage",
+        source: "api",
+        via: "native",
+        description: PROTOCOL_DESCRIPTIONS["avantis"] ?? "",
+        tools: tools.map((t) => ({ name: t.name, description: t.description })),
+      });
+      return;
+    }
+    if (id === "native") {
+      const tools = listNativeTools();
+      res.json({
+        id,
+        label: "OS native",
+        kind: "token research",
+        source: "api",
+        via: "native",
+        description: PROTOCOL_DESCRIPTIONS["native"] ?? "",
         tools: tools.map((t) => ({ name: t.name, description: t.description })),
       });
       return;

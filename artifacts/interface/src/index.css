@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -96,9 +96,9 @@
   --input: 240 6% 90%;
   --ring: 224 100% 58%;
 
-  --app-font-sans: 'Inter', system-ui, sans-serif;
+  --app-font-sans: 'Inter', 'Noto Sans SC', 'Noto Sans KR', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --app-font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Noto Sans SC', 'Noto Sans KR', monospace;
   --radius: .5rem; /* 8px */
 }
 

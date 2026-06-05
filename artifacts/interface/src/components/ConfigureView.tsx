@@ -42,9 +42,11 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useT } from "@/i18n";
 import { ServicesTab } from "./ServicesTab";
 
 export function ConfigureView() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -86,7 +88,7 @@ export function ConfigureView() {
   const currentModelName =
     models.find((m) => m.id === currentModelData?.model)?.name ||
     currentModelData?.model ||
-    "select model";
+    t("configure.selectModel");
 
   const handleSaveKey = async () => {
     if (keyDraft.trim().length < 8) return;
@@ -150,10 +152,10 @@ export function ConfigureView() {
       await updateMemory.mutateAsync({ data: { content: draft } });
       queryClient.invalidateQueries({ queryKey: getGetMemoryQueryKey() });
       setDraft(null);
-      toast({ description: "memory saved", duration: 1500 });
+      toast({ description: t("configure.memorySaved"), duration: 1500 });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      toast({ description: `save failed: ${msg}`, duration: 4000 });
+      toast({ description: t("configure.saveFailed", { msg }), duration: 4000 });
     }
   };
 
@@ -173,7 +175,7 @@ export function ConfigureView() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast({ description: "memory exported", duration: 1500 });
+    toast({ description: t("configure.memoryExported"), duration: 1500 });
   };
 
   const handleImportClick = () => fileInputRef.current?.click();
@@ -187,10 +189,10 @@ export function ConfigureView() {
       await updateMemory.mutateAsync({ data: { content: text } });
       queryClient.invalidateQueries({ queryKey: getGetMemoryQueryKey() });
       setDraft(null);
-      toast({ description: "memory imported", duration: 2000 });
+      toast({ description: t("configure.memoryImported"), duration: 2000 });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      toast({ description: `import failed: ${msg}`, duration: 4000 });
+      toast({ description: t("configure.importFailed", { msg }), duration: 4000 });
     }
   };
 
@@ -198,32 +200,34 @@ export function ConfigureView() {
     <div className="h-full w-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
         <div className="mb-4">
-          <h2 className="font-sans text-lg font-medium">configure</h2>
+          <h2 className="font-sans text-lg font-medium">{t("common.configure")}</h2>
           <p className="font-sans text-xs text-muted-foreground mt-1">
-            api keys + llm + services + memory.
+            {t("configure.subtitle")}
           </p>
         </div>
 
         <Tabs defaultValue="api" className="mt-2">
           <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto font-mono text-xs">
-            <TabsTrigger value="api">api</TabsTrigger>
-            <TabsTrigger value="llm">llm</TabsTrigger>
-            <TabsTrigger value="services">services</TabsTrigger>
-            <TabsTrigger value="memory">memory</TabsTrigger>
+            <TabsTrigger value="api">{t("configure.tabApi")}</TabsTrigger>
+            <TabsTrigger value="llm">{t("configure.tabLlm")}</TabsTrigger>
+            <TabsTrigger value="services">{t("configure.tabServices")}</TabsTrigger>
+            <TabsTrigger value="memory">{t("configure.tabMemory")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="api" className="space-y-5 py-3 font-mono">
             <div className="rounded-md border border-border/60 bg-secondary/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-              both keys below are <span className="text-foreground">required</span>{" "}
-              for bunnyOS to work. they unlock the model and the on-chain data
-              the agent reasons over.
+              {t("configure.keysIntroPrefix")}{" "}
+              <span className="text-foreground">
+                {t("configure.keysIntroRequired")}
+              </span>{" "}
+              {t("configure.keysIntroSuffix")}
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="api-key" className="text-xs">
-                  openrouter api key{" "}
-                  <span className="text-red ml-1">*required</span>
+                  {t("configure.openrouterKeyLabel")}{" "}
+                  <span className="text-red ml-1">{t("configure.requiredMark")}</span>
                 </Label>
                 <a
                   href="https://openrouter.ai/credits"
@@ -232,7 +236,7 @@ export function ConfigureView() {
                   className="text-[10px] text-accent hover:opacity-90 inline-flex items-center gap-1"
                   data-testid="link-openrouter-topup"
                 >
-                  top up $1 <ExternalLink className="h-2.5 w-2.5" />
+                  {t("configure.topUp")} <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -254,7 +258,7 @@ export function ConfigureView() {
                   disabled={keyDraft.trim().length < 8 || setApiKey.isPending}
                   data-testid="button-save-key"
                 >
-                  save
+                  {t("common.save")}
                 </Button>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -267,9 +271,9 @@ export function ConfigureView() {
                 >
                   {keyStatus?.configured
                     ? keyStatus.userProvided
-                      ? `● user key · ${keyStatus.masked}`
-                      : `● env key · ${keyStatus.masked}`
-                    : "○ no key set"}
+                      ? t("configure.userKeyStatus", { masked: keyStatus.masked })
+                      : t("configure.envKeyStatus", { masked: keyStatus.masked })
+                    : t("configure.noKeySet")}
                 </span>
                 {keyStatus?.userProvided && (
                   <button
@@ -277,21 +281,20 @@ export function ConfigureView() {
                     onClick={handleClearKey}
                     data-testid="button-clear-key"
                   >
-                    clear
+                    {t("configure.clear")}
                   </button>
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                grab a key at openrouter.ai/keys and add ~$1 in credits — pays
-                for thousands of agent turns on cheap models.
+                {t("configure.openrouterHelp")}
               </p>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="moralis-key" className="text-xs">
-                  moralis api key{" "}
-                  <span className="text-red ml-1">*required</span>
+                  {t("configure.moralisKeyLabel")}{" "}
+                  <span className="text-red ml-1">{t("configure.requiredMark")}</span>
                 </Label>
                 <a
                   href="https://admin.moralis.com"
@@ -300,7 +303,7 @@ export function ConfigureView() {
                   className="text-[10px] text-accent hover:opacity-90 inline-flex items-center gap-1"
                   data-testid="link-moralis-signup"
                 >
-                  get free key <ExternalLink className="h-2.5 w-2.5" />
+                  {t("configure.getFreeKey")} <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -324,7 +327,7 @@ export function ConfigureView() {
                   }
                   data-testid="button-save-moralis-key"
                 >
-                  save
+                  {t("common.save")}
                 </Button>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -337,9 +340,9 @@ export function ConfigureView() {
                 >
                   {moralisStatus?.configured
                     ? moralisStatus.userProvided
-                      ? `● user key · ${moralisStatus.masked}`
-                      : `● env key · ${moralisStatus.masked}`
-                    : "○ no key set"}
+                      ? t("configure.userKeyStatus", { masked: moralisStatus.masked })
+                      : t("configure.envKeyStatus", { masked: moralisStatus.masked })
+                    : t("configure.noKeySet")}
                 </span>
                 {moralisStatus?.userProvided && (
                   <button
@@ -347,21 +350,20 @@ export function ConfigureView() {
                     onClick={handleClearMoralis}
                     data-testid="button-clear-moralis-key"
                   >
-                    clear
+                    {t("configure.clear")}
                   </button>
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                free tier unlocks wallet history, nfts, defi positions, token
-                data across all evm chains. used on every agent turn.
+                {t("configure.moralisHelp")}
               </p>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="coingecko-key" className="text-xs">
-                  coingecko api key{" "}
-                  <span className="text-red ml-1">*required</span>
+                  {t("configure.coingeckoKeyLabel")}{" "}
+                  <span className="text-red ml-1">{t("configure.requiredMark")}</span>
                 </Label>
                 <a
                   href="https://www.coingecko.com/en/api/pricing"
@@ -370,7 +372,7 @@ export function ConfigureView() {
                   className="text-[10px] text-accent hover:opacity-90 inline-flex items-center gap-1"
                   data-testid="link-coingecko-signup"
                 >
-                  get free key <ExternalLink className="h-2.5 w-2.5" />
+                  {t("configure.getFreeKey")} <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -392,7 +394,7 @@ export function ConfigureView() {
                   disabled={coingeckoDraft.trim().length < 8 || setCoingeckoKey.isPending}
                   data-testid="button-save-coingecko-key"
                 >
-                  save
+                  {t("common.save")}
                 </Button>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -405,9 +407,9 @@ export function ConfigureView() {
                 >
                   {coingeckoStatus?.configured
                     ? coingeckoStatus.userProvided
-                      ? `● user key · ${coingeckoStatus.masked}`
-                      : `● env key · ${coingeckoStatus.masked}`
-                    : "○ no key set"}
+                      ? t("configure.userKeyStatus", { masked: coingeckoStatus.masked })
+                      : t("configure.envKeyStatus", { masked: coingeckoStatus.masked })
+                    : t("configure.noKeySet")}
                 </span>
                 {coingeckoStatus?.userProvided && (
                   <button
@@ -415,14 +417,12 @@ export function ConfigureView() {
                     onClick={handleClearCoingecko}
                     data-testid="button-clear-coingecko-key"
                   >
-                    clear
+                    {t("configure.clear")}
                   </button>
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                bunnyOS needs this for token pricing, market data, and discovery.
-                free Demo tier (no card) — ~30 req/min, 10k req/month. required
-                for all calls, including onchain dex lookups.
+                {t("configure.coingeckoHelp")}
               </p>
             </div>
 
@@ -430,7 +430,7 @@ export function ConfigureView() {
 
           <TabsContent value="llm" className="space-y-5 py-3 font-mono">
             <div className="space-y-2">
-              <Label className="text-xs">model</Label>
+              <Label className="text-xs">{t("configure.modelLabel")}</Label>
               <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -447,12 +447,12 @@ export function ConfigureView() {
                 <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[440px] p-0" align="start">
                   <Command>
                     <CommandInput
-                      placeholder="search models..."
+                      placeholder={t("configure.searchModels")}
                       className="font-mono text-xs"
                     />
                     <CommandList>
                       <CommandEmpty className="text-xs p-4 text-center font-mono">
-                        no models found.
+                        {t("configure.noModelsFound")}
                       </CommandEmpty>
                       <CommandGroup>
                         {models.map((model) => (
@@ -464,7 +464,7 @@ export function ConfigureView() {
                           >
                             <span className="truncate mr-2">{model.name}</span>
                             {model.free ? (
-                              <span className="text-green shrink-0">free</span>
+                              <span className="text-green shrink-0">{t("configure.free")}</span>
                             ) : (
                               <span className="text-muted-foreground shrink-0">
                                 ${model.price_input}
@@ -479,7 +479,7 @@ export function ConfigureView() {
               </Popover>
               {!keyStatus?.configured && (
                 <p className="text-[10px] text-muted-foreground">
-                  set an api key to load the model list.
+                  {t("configure.setKeyToLoadModels")}
                 </p>
               )}
             </div>
@@ -504,19 +504,19 @@ export function ConfigureView() {
                 disabled={isSavingMemory}
                 className="px-2 py-1 bg-secondary hover:bg-secondary/80 rounded font-mono text-[10px] text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-50"
                 data-testid="button-memory-import"
-                title="import memory (.md)"
+                title={t("configure.importMemoryTitle")}
               >
                 <Upload className="h-3 w-3" />
-                import
+                {t("configure.importLabel")}
               </button>
               <button
                 onClick={handleExportMemory}
                 className="px-2 py-1 bg-secondary hover:bg-secondary/80 rounded font-mono text-[10px] text-foreground transition-colors inline-flex items-center gap-1"
                 data-testid="button-memory-export"
-                title="export memory (.md)"
+                title={t("configure.exportMemoryTitle")}
               >
                 <Download className="h-3 w-3" />
-                export
+                {t("configure.exportLabel")}
               </button>
             </div>
             <Textarea
@@ -524,12 +524,12 @@ export function ConfigureView() {
               onChange={(e) => setDraft(e.target.value)}
               className="font-mono text-xs min-h-[200px] sm:min-h-[320px] resize-y bg-background"
               spellCheck={false}
-              placeholder="freeform notes for bunnyOS: risk tolerance, time horizon, tokens to avoid, recurring intents…"
+              placeholder={t("configure.memoryPlaceholder")}
               data-testid="memory-editor"
             />
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground">
-                bunnyOS reads this on every request. plain markdown.
+                {t("configure.memoryHelp")}
               </p>
               <div className="flex gap-2 shrink-0">
                 <Button
@@ -540,7 +540,7 @@ export function ConfigureView() {
                   disabled={!dirty || isSavingMemory}
                   data-testid="button-memory-revert"
                 >
-                  revert
+                  {t("configure.revert")}
                 </Button>
                 <Button
                   size="sm"
@@ -549,7 +549,7 @@ export function ConfigureView() {
                   disabled={!dirty || isSavingMemory}
                   data-testid="button-memory-save"
                 >
-                  {isSavingMemory ? "saving…" : "save"}
+                  {isSavingMemory ? t("configure.saving") : t("common.save")}
                 </Button>
               </div>
             </div>

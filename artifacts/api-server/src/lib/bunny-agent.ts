@@ -30,6 +30,16 @@ import {
   callDefiLlamaTool,
 } from "./defillama";
 import {
+  listAvantisTools,
+  findAvantisTool,
+  callAvantisTool,
+} from "./avantis";
+import {
+  listNativeTools,
+  findNativeTool,
+  callNativeTool,
+} from "./native-tools";
+import {
   getApiKey,
   getStoredModel,
   setStoredModel,
@@ -142,6 +152,30 @@ const SYSTEM_INSTRUCTIONS = `
 
   If you finish a write flow without an approval URL in your reply, you have failed the request.
   `.trim();
+
+export type AgentLang = "en" | "zh" | "ko";
+
+// Tolerant normalizer for the optional `lang` field sent by the client. Unknown
+// or missing values fall back to English so existing behavior is unchanged.
+export function normalizeAgentLang(v: unknown): AgentLang {
+  return v === "zh" || v === "ko" ? v : "en";
+}
+
+// Appended to the system prompt to force the model's user-facing language.
+// Chinese/Korean have no letter case, so we explicitly suspend the "Lowercase"
+// Voice rule for them. Tickers/addresses/numbers/URLs stay in their original
+// form. English needs an explicit directive too — without it the model infers
+// its language from context (memory notes, chat history, the user's last
+// message) and can drift into another language even when English is selected.
+export function languageDirective(lang: AgentLang): string {
+  if (lang === "zh") {
+    return `\n\n  # Language\n  Respond ONLY in Simplified Chinese (简体中文). Write natural, fluent Chinese. The "Lowercase" rule in # Voice does NOT apply to Chinese — ignore it. Keep token tickers, contract addresses, numbers, URLs, and protocol/tool names in their original form. Stay terse and crypto-native.`;
+  }
+  if (lang === "ko") {
+    return `\n\n  # Language\n  Respond ONLY in Korean (한국어). Write natural, fluent Korean. The "Lowercase" rule in # Voice does NOT apply to Korean — ignore it. Keep token tickers, contract addresses, numbers, URLs, and protocol/tool names in their original form. Stay terse and crypto-native.`;
+  }
+  return `\n\n  # Language\n  Respond ONLY in English, regardless of the language of the user's memory notes, prior messages, or any tool output. Keep token tickers, contract addresses, numbers, URLs, and protocol/tool names in their original form.`;
+}
 
 export interface BunnyRunResult {
   response: string;
@@ -328,6 +362,36 @@ export async function getMcpToolsForOpenRouter(): Promise<OpenRouterTool[]> {
         });
       }
     }
+    if (isProtocolEnabled("avantis")) {
+      for (const t of listAvantisTools()) {
+        out.push({
+          type: "function" as const,
+          function: {
+            name: t.name,
+            description: t.description || t.name,
+            parameters:
+              typeof t.inputSchema === "object" && t.inputSchema
+                ? t.inputSchema
+                : { type: "object", properties: {} },
+          },
+        });
+      }
+    }
+    if (isProtocolEnabled("native")) {
+      for (const t of listNativeTools()) {
+        out.push({
+          type: "function" as const,
+          function: {
+            name: t.name,
+            description: t.description || t.name,
+            parameters:
+              typeof t.inputSchema === "object" && t.inputSchema
+                ? t.inputSchema
+                : { type: "object", properties: {} },
+          },
+        });
+      }
+    }
   } catch (err) {
     logger.warn({ err }, "Failed to load CoinGecko tools");
   }
@@ -474,6 +538,16 @@ export async function dispatchToolCall(
       throw new Error("DeFi Llama is disabled by the user");
     }
     result = await callDefiLlamaTool(name, args);
+  } else if (findAvantisTool(name)) {
+    if (!isProtocolEnabled("avantis")) {
+      throw new Error("Avantis is disabled by the user");
+    }
+    result = await callAvantisTool(name, args);
+  } else if (findNativeTool(name)) {
+    if (!isProtocolEnabled("native")) {
+      throw new Error("bunnyOS native tools are disabled by the user");
+    }
+    result = await callNativeTool(name, args);
   } else {
     if (!isProtocolEnabled("base")) {
       throw new Error("Base MCP is disabled by the user");
@@ -559,6 +633,7 @@ export interface ChatHistoryTurn {
 export async function runBunny(
   message: string,
   history?: ChatHistoryTurn[],
+  lang: AgentLang = "en",
 ): Promise<BunnyRunResult> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -568,7 +643,7 @@ export async function runBunny(
   const memoryContext = getContext();
   const mcpTools = await getMcpToolsForOpenRouter();
   const mcpNote = `\n\n${buildMcpStatusNote(mcpTools.length)}${mcpTools.length ? ` Available tools: ${mcpTools.map((t) => t.function.name).join(", ")}.` : ""}`;
-  const systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\n${memoryContext}${mcpNote}`;
+  const systemPrompt = `${SYSTEM_INSTRUCTIONS}${languageDirective(lang)}\n\n${memoryContext}${mcpNote}`;
 
   const referer = OPENROUTER_HTTP_REFERER;
 
@@ -771,6 +846,7 @@ async function* streamOpenRouterRound(
 export async function* streamBunny(
   message: string,
   history?: ChatHistoryTurn[],
+  lang: AgentLang = "en",
 ): AsyncGenerator<BunnyStreamEvent> {
   yield { type: "thinking" };
   const apiKey = getApiKey();
@@ -786,7 +862,7 @@ export async function* streamBunny(
   const memoryContext = getContext();
   const mcpTools = await getMcpToolsForOpenRouter();
   const mcpNote = `\n\n${buildMcpStatusNote(mcpTools.length)}${mcpTools.length ? ` Available tools: ${mcpTools.map((t) => t.function.name).join(", ")}.` : ""}`;
-  const systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\n${memoryContext}${mcpNote}`;
+  const systemPrompt = `${SYSTEM_INSTRUCTIONS}${languageDirective(lang)}\n\n${memoryContext}${mcpNote}`;
 
   const referer = OPENROUTER_HTTP_REFERER;
 

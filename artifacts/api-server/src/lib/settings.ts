@@ -8,6 +8,19 @@ import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { getCurrentUserId } from "./user";
 import { encrypt, tryDecrypt } from "./crypto";
+import type { AgentLang } from "./bunny-agent";
+
+// Local copy of normalizeAgentLang to avoid a runtime import cycle with
+// bunny-agent.ts (which imports from this module). Unknown/missing → "en".
+function normLang(v: unknown): AgentLang {
+  return v === "zh" || v === "ko" ? v : "en";
+}
+
+// Product default UI language (mirrors interface DEFAULT_LANG in
+// artifacts/interface/src/i18n/config.ts). Used when a user has no persisted
+// `lang` yet, so background scanner output (recommendations/alerts) matches the
+// zh-default UI they see rather than silently falling back to English.
+const DEFAULT_USER_LANG: AgentLang = "zh";
 
 // Per-user in-memory settings cache. Hydrated on-demand by the session
 // middleware (and by the workflow scheduler before iterating a user). Reads
@@ -19,6 +32,7 @@ interface CachedSettings {
   moralisApiKey: string | null;
   coingeckoApiKey: string | null;
   model: string | null;
+  lang: AgentLang;
   memoryMd: string;
   baseMcpSession: unknown;
 }
@@ -28,6 +42,7 @@ const DEFAULT_CACHE: CachedSettings = {
   moralisApiKey: null,
   coingeckoApiKey: null,
   model: null,
+  lang: DEFAULT_USER_LANG,
   memoryMd: "",
   baseMcpSession: null,
 };
@@ -90,6 +105,7 @@ function rowToCache(row: UserSettings): CachedSettings {
     moralisApiKey: sanitizeStoredKey(tryDecrypt(row.moralisApiKey)),
     coingeckoApiKey: sanitizeStoredKey(tryDecrypt(row.coingeckoApiKey)),
     model: row.model,
+    lang: row.lang == null ? DEFAULT_USER_LANG : normLang(row.lang),
     memoryMd: row.memoryMd,
     baseMcpSession: decryptJsonbSession(row.baseMcpSession),
   };
@@ -271,6 +287,21 @@ export function getMemoryMd(): string {
 export async function setMemoryMd(text: string): Promise<void> {
   await patch({ memoryMd: text });
   getCache().memoryMd = text;
+}
+
+// ---------- User language preference ----------
+// Persisted so background-generated output (action recommendations/alerts via
+// the workflow scanner) is produced natively in the user's language. The
+// browser still sends `lang` per chat/report request; this is the server-side
+// source of truth for jobs that run without a request context.
+
+export function getLang(): AgentLang {
+  return getCache().lang;
+}
+export async function setLang(lang: AgentLang): Promise<void> {
+  const clean = normLang(lang);
+  await patch({ lang: clean });
+  getCache().lang = clean;
 }
 
 // ---------- Base MCP oauth session blob (encrypted) ----------

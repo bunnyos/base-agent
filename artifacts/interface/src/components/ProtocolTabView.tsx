@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useT } from "@/i18n";
 
 type ProtocolDetail = {
   id: string;
@@ -11,6 +12,7 @@ type ProtocolDetail = {
 };
 
 export function ProtocolTabView({ protocolId }: { protocolId: string }) {
+  const t = useT();
   const { data, isLoading } = useQuery({
     queryKey: ["/api/protocols", protocolId, "tools"],
     queryFn: async (): Promise<ProtocolDetail | null> => {
@@ -31,36 +33,40 @@ export function ProtocolTabView({ protocolId }: { protocolId: string }) {
             {data?.label ?? protocolId}
           </h2>
           <span className="font-mono text-[10px] text-muted-foreground">
-            {data?.source === "api" ? `api · ${data.via ?? ""}` : "mcp"}
+            {data?.source === "api"
+              ? t("protocolTab.apiVia", { via: data.via ?? "" })
+              : t("protocolTab.mcp")}
           </span>
         </div>
         <p className="font-sans text-sm leading-relaxed text-muted-foreground">
-          {isLoading ? "loading…" : data?.description ?? "no description"}
+          {isLoading
+            ? t("protocolTab.loading")
+            : data?.description ?? t("protocolTab.noDescription")}
         </p>
         {data && (
           <div className="mt-6">
             <h3 className="font-mono text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               {data.source === "api"
-                ? "no mcp tools (http api)"
-                : `tools (${data.tools.length})`}
+                ? t("protocolTab.noMcpTools")
+                : t("protocolTab.toolsCount", { count: data.tools.length })}
             </h3>
             {data.source === "mcp" && data.tools.length === 0 && !isLoading && (
               <p className="font-mono text-[10px] text-muted-foreground">
-                no tools — server not connected
+                {t("protocolTab.noToolsDisconnected")}
               </p>
             )}
             <ul className="space-y-3">
-              {data.tools.map((t) => (
+              {data.tools.map((tool) => (
                 <li
-                  key={t.name}
+                  key={tool.name}
                   className="border-l-2 border-border pl-3 py-0.5"
                 >
                   <div className="font-mono text-xs text-foreground">
-                    {t.name}
+                    {tool.name}
                   </div>
-                  {t.description && (
+                  {tool.description && (
                     <div className="font-sans text-xs text-muted-foreground leading-snug mt-0.5">
-                      {t.description}
+                      {tool.description}
                     </div>
                   )}
                 </li>

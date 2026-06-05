@@ -1,4 +1,7 @@
+import { useT } from "@/i18n";
+
 export function Footer() {
+  const t = useT();
   return (
     <footer className="relative z-10 w-full px-6 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between shrink-0 bg-background/70 backdrop-blur">
       <a
@@ -18,7 +21,7 @@ export function Footer() {
         @officialbunnyos
       </a>
       <span className="font-mono flex items-center gap-3">
-        <span>v0.2</span>
+        <span>{t("footer.version")}</span>
       </span>
     </footer>
   );

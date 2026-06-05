@@ -11,11 +11,23 @@ export default function Landing() {
   const auth = useAuth();
   const [connecting, setConnecting] = useState(false);
 
+  // The public landing page is always English for SEO, regardless of the
+  // visitor's saved UI language (DEFAULT_LANG is zh). Force the document title
+  // and <html lang> to English while this page is mounted. The rAF re-assert
+  // runs after LanguageProvider's own mount effect (child effects fire before
+  // parent effects) so the provider can't clobber <html lang> back to zh.
   useEffect(() => {
-    const prev = document.title;
+    const prevTitle = document.title;
+    const prevLang = document.documentElement.lang;
     document.title = "The first open-source @base agent.";
+    document.documentElement.lang = "en";
+    const raf = requestAnimationFrame(() => {
+      document.documentElement.lang = "en";
+    });
     return () => {
-      document.title = prev;
+      cancelAnimationFrame(raf);
+      document.title = prevTitle;
+      document.documentElement.lang = prevLang || "en";
     };
   }, []);
 

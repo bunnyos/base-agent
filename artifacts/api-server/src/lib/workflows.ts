@@ -1,7 +1,7 @@
 import { db, workflowsTable, type WorkflowRow } from "@workspace/db";
 import { eq, and, notInArray } from "drizzle-orm";
 import { logger } from "./logger";
-import { hydrateUserSettings, getApiKey } from "./settings";
+import { hydrateUserSettings, getApiKey, getLang } from "./settings";
 import { getCurrentUserId } from "./user";
 import { runWithUser } from "./request-context";
 import { OPENROUTER_HTTP_REFERER, OPENROUTER_APP_TITLE } from "./app-meta";
@@ -12,6 +12,7 @@ import {
   getMcpToolsForOpenRouter,
   getCurrentModelId,
   FALLBACK_MODELS,
+  languageDirective,
   type OpenRouterTool,
   type Msg,
 } from "./bunny-agent";
@@ -154,7 +155,7 @@ const EMIT_TOOLS: OpenRouterTool[] = [
           executeInstructions: {
             type: "string",
             description:
-              "A single short imperative sentence the chat agent can act on, e.g. 'deposit 100 USDC into the morpho gauntlet usdc vault on base' or 'swap 0.1 ETH for USDC on base'. Be specific about amounts, assets, and venues.",
+              "A single short imperative sentence the chat agent can act on, e.g. 'deposit 1 USDC into the morpho gauntlet usdc vault on base (0xc1256ae5ff1cf2719d4937adb3bbccab2e00a2ca)' or 'buy 1 USDC worth of 0x4ed4e862860bed51a9570b96d89af5e1b0efefed (DEGEN) on base'. Be specific about the asset and venue. IMPORTANT: when the move buys or swaps INTO a specific token, identify that token by its contract address (CA) — not just its ticker — using the exact address from the tool data, e.g. 'buy 1 USDC of <contract address>' rather than 'buy 1 USDC of <ticker>'. When the move enters a yield POOL/VAULT/MARKET, name the protocol AND the exact pool/vault/market (its full name, never a vague 'best pool') and include the pool/vault contract address from the tool data when you have it, e.g. 'deposit 1 USDC into the <protocol> <exact pool name> on base (<pool address>)'. Use the exact address from the tool data and never invent one. You may put the ticker in parentheses after a token address for readability. Default the amount to 1 USDC (or 1 unit of the relevant asset) — the user adjusts it before executing — unless the user's own action instructions name a specific amount. Write this sentence in the user's language per the # Language section (the examples here are English only for illustration); keep tickers, contract addresses, numbers, and venue/protocol names in their original form.",
           },
           tokens: {
             type: "array",
@@ -193,8 +194,14 @@ You are a scoped autonomous agent that runs on a schedule for one user.
 Your job: follow the user's instructions for this action, call read-only tools to gather the data you need, then post zero or more findings by calling emit_alert and/or emit_recommendation. You may call each multiple times if multiple findings are warranted. Be conservative — only emit when the user's trigger conditions are actually met.
 
 Hard rules:
+- Write ALL user-facing text you emit — emit_alert.title/summary and emit_recommendation.title/why/executeInstructions — in the user's language per the # Language section appended below. This includes executeInstructions, even though its example is written in English. Keep token tickers, contract addresses, numbers, URLs, and protocol/tool names in their original form.
 - Never call write tools yourself (send_calls, any *prepare* tool). The user owns execution via the Execute button on a recommendation.
-- emit_recommendation.executeInstructions must be a single short imperative sentence the chat agent can act on with specific amounts, assets, and venues.
+- emit_recommendation.executeInstructions must be a single short imperative sentence the chat agent can act on, naming the asset and venue.
+- Identify the bought/swapped-into token by its CONTRACT ADDRESS in executeInstructions, never just the ticker. Write "buy 1 USDC of 0x<contract address>" (optionally with the ticker in parentheses), not "buy 1 USDC of <TICKER>". Use the exact address from the tool data; if you do not have the contract address, do not emit a buy/swap recommendation for that token.
+- For yield/pool/vault/market recommendations, name the venue EXACTLY in executeInstructions: the protocol plus the specific pool/vault/market's full name (never vague wording like "the best USDC pool"), and include the pool/vault contract address from the tool data when available — e.g. "deposit 1 USDC into the morpho gauntlet usdc vault on base (0x<pool address>)". This prevents the chat agent from misinterpreting which pool to enter. Use the exact address from the tool data; never invent one.
+- One subject per recommendation: each emit_recommendation must be about exactly ONE token or ONE pool/position. If several tokens or pools qualify, call emit_recommendation once per item — never bundle multiple into a single recommendation (no "buy X, Y and Z"). Emit three separate recommendations for X, Y, Z instead.
+- Prefer percentages over absolute dollar amounts in your trigger reasoning and thresholds. When a threshold could be expressed either way, use a percentage (share of wallet value, relative apy gap in percentage points, % price move) rather than a fixed dollar figure like "$200".
+- Default trade size: whenever executeInstructions needs an amount and the user's own action instructions do NOT specify one, use 1 USDC (or 1 unit of the relevant asset). Always keep it at 1 — the user will adjust the amount themselves before executing. Never invent a larger default.
 - emit_alert severity "critical" is reserved for genuine risk (liquidation, exploit, account compromise). Default to "info".
 - Whenever a finding is about specific token(s), populate the \`tokens\` array with each token's symbol and contract address (CA) using the exact address from the tool data. Never fabricate an address; omit a token rather than guess.
 - If a tool errors or returns nothing useful, do NOT invent data. Either emit a low-severity alert noting the failure, or stop silently if it's transient.
@@ -326,8 +333,12 @@ async function executeWorkflow(row: WorkflowRow): Promise<RunResult> {
   // context to suppress them itself.
   const recentBlock = await buildRecentFindingsBlock(source);
 
+  // Generate findings natively in the user's persisted language. emit_* tool
+  // args (title/why/summary) the model writes will follow this directive, so
+  // recommendations/alerts land in the inbox already localized. Runs inside the
+  // scheduler's runWithUser() + hydrated settings, so getLang() is safe here.
   const messages: Msg[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT + languageDirective(getLang()) },
     {
       role: "user",
       content: `Action name: ${row.name || "(unnamed)"}\n\nInstructions from the user:\n${instructions}\n${recentBlock}\nRun now. Gather what you need, emit any warranted alerts or recommendations, then stop.`,

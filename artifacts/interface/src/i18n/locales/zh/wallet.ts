@@ -1,0 +1,18 @@
+export default {
+  wallet: "钱包",
+  connectBaseAccount: "连接 Base 账户",
+  address: "地址",
+  copied: "{label}已复制",
+  refresh: "刷新",
+  defiPositions: "DeFi 仓位",
+  defiPositionsTitle: "在 debank 查看借贷、质押和 LP 仓位",
+  manageInBaseAccount: "在 Base 账户中管理",
+  manageInBaseAccountTitle: "打开 Base 账户进行买入 / 发送 / 兑换 / 接收 / 设置",
+  status: "状态",
+  configureArrow: "配置 ›",
+  bunnyOsImplementation: "bunnyOS 实现",
+  off: "关闭",
+  toolCount: "{count} 个工具",
+  notAuthorized: "未授权",
+  offline: "离线",
+} as const;

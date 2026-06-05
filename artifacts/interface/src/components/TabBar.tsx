@@ -4,10 +4,12 @@ import { X } from "lucide-react";
 import { useTabs, type Tab } from "./TabsContext";
 import { useClickSound } from "@/hooks/useClickSound";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n";
 
 export function TabBar() {
   const { tabs, activeId, setActive, closeTab, reorderVisible } = useTabs();
   const click = useClickSound();
+  const t = useT();
 
   const visible = useMemo(() => tabs.filter((t) => !t.hidden), [tabs]);
 
@@ -31,13 +33,14 @@ export function TabBar() {
         className="flex flex-nowrap items-end gap-1 overflow-x-auto flex-1 min-w-0"
       >
         <AnimatePresence initial={false}>
-          {visible.map((t) => {
-            const active = t.id === activeId;
-            const showClose = t.id !== "home" && t.closable !== false;
+          {visible.map((tab) => {
+            const active = tab.id === activeId;
+            const showClose = tab.id !== "home" && tab.closable !== false;
+            const title = tab.titleKey ? t(tab.titleKey) : tab.title;
             return (
               <Reorder.Item
-                key={t.id}
-                value={t}
+                key={tab.id}
+                value={tab}
                 as="div"
                 layout
                 initial={{ opacity: 0, y: 6 }}
@@ -59,7 +62,7 @@ export function TabBar() {
                 }}
                 onPointerDown={() => {
                   if (!active) {
-                    setActive(t.id);
+                    setActive(tab.id);
                     click("tap");
                   }
                 }}
@@ -70,11 +73,11 @@ export function TabBar() {
                     : "bg-transparent border-transparent text-muted-foreground hover:bg-background/60 hover:text-foreground",
                 )}
               >
-                <span className="truncate relative z-10">{t.title}</span>
+                <span className="truncate relative z-10">{title}</span>
                 {showClose && (
                   <motion.span
                     role="button"
-                    aria-label={`close ${t.title}`}
+                    aria-label={t("tabs.close", { title })}
                     whileHover={{ scale: 1.2, rotate: 90 }}
                     whileTap={{ scale: 0.85 }}
                     transition={{ type: "spring", stiffness: 500, damping: 22 }}
@@ -82,7 +85,7 @@ export function TabBar() {
                     onClick={(e) => {
                       e.stopPropagation();
                       click("tap");
-                      closeTab(t.id);
+                      closeTab(tab.id);
                     }}
                     className="p-0.5 rounded hover:bg-foreground/10 text-muted-foreground hover:text-foreground"
                   >

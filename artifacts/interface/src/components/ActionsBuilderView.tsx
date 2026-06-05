@@ -15,6 +15,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Download, Loader2, Play, Plus, Trash2, Upload } from "lucide-react";
 import { playSound } from "@/lib/sound";
+import { useT, type TFn } from "@/i18n";
 
 interface ActionDraft {
   name: string;
@@ -26,6 +27,32 @@ interface ActionDraft {
 
 const EXPORT_TYPE = "bunnyos.action";
 const EXPORT_VERSION = 1;
+
+// Native rows have id `nv:<key>:<userId>`; recover the stable key so the title
+// can be looked up in i18n. key has no colons; userId (uuid) has none either.
+function nativeActionKey(id: string): string | null {
+  if (!id.startsWith("nv:")) return null;
+  const rest = id.slice(3);
+  const i = rest.lastIndexOf(":");
+  return i === -1 ? rest : rest.slice(0, i);
+}
+
+// Native action titles are seeded in English; translate them for display only,
+// keyed by the native key. Custom actions keep their user-typed name as-is.
+function actionTitle(
+  w: { id: string; name: string; source: string },
+  t: TFn,
+): string {
+  if (w.source === "native") {
+    const key = nativeActionKey(w.id);
+    if (key) {
+      const full = `nativeActions.${key}`;
+      const tr = t(full);
+      if (tr !== full) return tr;
+    }
+  }
+  return w.name || t("actionsBuilder.untitled");
+}
 
 function toDraft(a: Action): ActionDraft {
   return {
@@ -57,7 +84,7 @@ function coerceDraft(raw: unknown): ActionDraft | null {
   return { name, enabled, intervalMs, instructions, toolAllowlist };
 }
 
-function parseImport(text: string): ActionDraft {
+function parseImport(text: string, t: TFn): ActionDraft {
   const parsed = JSON.parse(text) as unknown;
   let candidate: unknown = parsed;
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -65,8 +92,7 @@ function parseImport(text: string): ActionDraft {
     if (o["action"] && typeof o["action"] === "object") candidate = o["action"];
   }
   const draft = coerceDraft(candidate);
-  if (!draft)
-    throw new Error("invalid action: expected an object with name + intervalMs");
+  if (!draft) throw new Error(t("actionsBuilder.invalidActionImport"));
   return draft;
 }
 
@@ -120,15 +146,15 @@ interface ActionsResponse {
   allowedIntervalsMs: number[];
 }
 
-function relativeTime(iso: string | null): string {
-  if (!iso) return "never";
+function relativeTime(iso: string | null, t: TFn): string {
+  if (!iso) return t("actionsBuilder.never");
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return "just now";
+  if (diff < 60_000) return t("actionsBuilder.justNow");
   const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return t("actionsBuilder.minutesAgo", { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return t("actionsBuilder.hoursAgo", { n: hours });
+  return t("actionsBuilder.daysAgo", { n: Math.floor(hours / 24) });
 }
 
 function formatInterval(ms: number): string {
@@ -146,6 +172,7 @@ const PLACEHOLDER_INSTRUCTIONS = `examples:
 • scan top 5 yield opportunities for USDC on base via defi llama. if any beats my current best by >100 bps, recommend moving 100 USDC into it.`;
 
 export function ActionsBuilderView() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,10 +217,10 @@ export function ActionsBuilderView() {
       const text = await file.text();
       let draft: ActionDraft;
       try {
-        draft = parseImport(text);
+        draft = parseImport(text, t);
       } catch (err) {
         toast({
-          title: "import failed",
+          title: t("actionsBuilder.importFailed"),
           description: err instanceof Error ? err.message : String(err),
           variant: "destructive",
         });
@@ -206,7 +233,7 @@ export function ActionsBuilderView() {
       });
       if (!r.ok) {
         toast({
-          title: "import failed",
+          title: t("actionsBuilder.importFailed"),
           description: await r.text(),
           variant: "destructive",
         });
@@ -215,7 +242,7 @@ export function ActionsBuilderView() {
       const j = (await r.json()) as { workflow: Action };
       await refresh();
       setEditingId(j.workflow.id);
-      toast({ title: "imported", description: draft.name });
+      toast({ title: t("actionsBuilder.imported"), description: draft.name });
     } finally {
       setImporting(false);
     }
@@ -226,7 +253,7 @@ export function ActionsBuilderView() {
     const tempId = `tmp_${Math.random().toString(36).slice(2, 10)}`;
     const optimistic: Action = {
       id: tempId,
-      name: "new action",
+      name: t("actionsBuilder.newActionName"),
       source: "custom",
       enabled: false,
       intervalMs: 600_000,
@@ -284,7 +311,7 @@ export function ActionsBuilderView() {
         );
         setEditingId((curr) => (curr === tempId ? null : curr));
         toast({
-          title: "create failed",
+          title: t("actionsBuilder.createFailed"),
           description: err instanceof Error ? err.message : String(err),
           variant: "destructive",
         });
@@ -302,7 +329,7 @@ export function ActionsBuilderView() {
       >
         <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-1">
           <h2 className="font-sans text-xs font-medium text-muted-foreground uppercase tracking-widest">
-            actions
+            {t("actionsBuilder.actions")}
           </h2>
           <div className="flex items-center gap-0.5">
             <Button
@@ -310,7 +337,7 @@ export function ActionsBuilderView() {
               variant="ghost"
               onClick={onImportClick}
               disabled={importing}
-              title="import action from json"
+              title={t("actionsBuilder.importActionTitle")}
               className="h-7 w-7 p-0 font-mono text-[11px]"
             >
               {importing ? (
@@ -326,7 +353,7 @@ export function ActionsBuilderView() {
               className="h-7 px-2 font-mono text-[11px]"
             >
               <Plus className="h-3 w-3 mr-1" />
-              new
+              {t("actionsBuilder.new")}
             </Button>
           </div>
           <input
@@ -340,20 +367,23 @@ export function ActionsBuilderView() {
         <div className="flex-1 overflow-y-auto">
           {isLoading && (
             <div className="px-4 py-6 font-mono text-[11px] text-muted-foreground">
-              loading…
+              {t("actionsBuilder.loading")}
             </div>
           )}
           {!isLoading && (data?.workflows.length ?? 0) === 0 && (
             <div className="px-4 py-8 font-mono text-[11px] text-muted-foreground leading-relaxed">
-              no actions yet. click <span className="text-foreground">new</span>{" "}
-              to create one.
+              {t("actionsBuilder.noActionsBefore")}{" "}
+              <span className="text-foreground">{t("actionsBuilder.new")}</span>{" "}
+              {t("actionsBuilder.noActionsAfter")}
             </div>
           )}
           {groupedActions.map(({ source, items }) =>
             items.length === 0 ? null : (
               <div key={source}>
                 <div className="px-4 pt-3 pb-1 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-                  {source === "native" ? "Native Actions" : "Custom Actions"}
+                  {source === "native"
+                    ? t("actionsBuilder.nativeActions")
+                    : t("actionsBuilder.customActions")}
                 </div>
                 {items.map((w) => (
                   <button
@@ -372,7 +402,7 @@ export function ActionsBuilderView() {
                         ●
                       </span>
                       <span className="font-mono text-xs text-foreground truncate flex-1">
-                        {w.name || "untitled"}
+                        {actionTitle(w, t)}
                       </span>
                       <span
                         className={`shrink-0 font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
@@ -385,16 +415,24 @@ export function ActionsBuilderView() {
                       </span>
                     </div>
                     <div className="mt-1 font-mono text-[10px] text-muted-foreground flex items-center gap-2">
-                      <span>every {formatInterval(w.intervalMs)}</span>
+                      <span>
+                        {t("actionsBuilder.every", {
+                          interval: formatInterval(w.intervalMs),
+                        })}
+                      </span>
                       <span>·</span>
                       <span>
                         {w.toolAllowlist === null
-                          ? "all tools"
-                          : `${w.toolAllowlist.length} tools`}
+                          ? t("actionsBuilder.allTools")
+                          : t("actionsBuilder.toolsCount", {
+                              count: w.toolAllowlist.length,
+                            })}
                       </span>
                     </div>
                     <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
-                      last run: {relativeTime(w.lastRunAt)}
+                      {t("actionsBuilder.lastRun", {
+                        time: relativeTime(w.lastRunAt, t),
+                      })}
                       {w.lastRunStatus ? ` (${w.lastRunStatus})` : ""}
                     </div>
                   </button>
@@ -430,17 +468,15 @@ export function ActionsBuilderView() {
           <div className="h-full flex items-center justify-center px-6 text-center">
             <div className="space-y-2 max-w-md">
               <div className="font-sans text-lg text-foreground">
-                actions builder
+                {t("actionsBuilder.actionsBuilderTitle")}
               </div>
               <div className="font-mono text-[11px] text-muted-foreground leading-relaxed">
-                each action is a scoped agent that runs on a schedule. write
-                what you want it to watch for, pick which tools it may call,
-                and it will post alerts and one-click recommendations into your
-                inbox.
+                {t("actionsBuilder.builderIntro")}
               </div>
               <div className="font-mono text-[11px] text-muted-foreground leading-relaxed pt-2">
-                pick an action on the left to edit, or click{" "}
-                <span className="text-foreground">new</span>.
+                {t("actionsBuilder.pickActionBefore")}{" "}
+                <span className="text-foreground">{t("actionsBuilder.new")}</span>
+                {t("actionsBuilder.pickActionAfter")}
               </div>
             </div>
           </div>
@@ -467,6 +503,7 @@ function ActionEditor({
   onDeleted: () => void;
   onBack: () => void;
 }) {
+  const t = useT();
   const { toast } = useToast();
   const isNative = action.source === "native";
   const [name, setName] = useState(action.name);
@@ -540,7 +577,7 @@ function ActionEditor({
         setEnabled(!next);
         const j = (await r.json().catch(() => ({}))) as { error?: string };
         toast({
-          title: "couldn't update",
+          title: t("actionsBuilder.couldntUpdate"),
           description: j.error ?? `${r.status}`,
           variant: "destructive",
         });
@@ -550,7 +587,7 @@ function ActionEditor({
     } catch (err) {
       setEnabled(!next);
       toast({
-        title: "couldn't update",
+        title: t("actionsBuilder.couldntUpdate"),
         description: err instanceof Error ? err.message : String(err),
         variant: "destructive",
       });
@@ -567,7 +604,9 @@ function ActionEditor({
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            name: name.trim() ? `${name} (custom)` : "custom action",
+            name: name.trim()
+              ? t("actionsBuilder.customCopyName", { name })
+              : t("actionsBuilder.customActionName"),
             enabled,
             intervalMs,
             instructions,
@@ -577,7 +616,7 @@ function ActionEditor({
         if (!r.ok) {
           const j = (await r.json().catch(() => ({}))) as { error?: string };
           toast({
-            title: "save failed",
+            title: t("actionsBuilder.saveFailed"),
             description: j.error ?? `${r.status}`,
             variant: "destructive",
           });
@@ -585,8 +624,8 @@ function ActionEditor({
         }
         const j = (await r.json()) as { workflow: Action };
         toast({
-          title: "saved as custom copy",
-          description: "the starter action is unchanged",
+          title: t("actionsBuilder.savedAsCustomCopy"),
+          description: t("actionsBuilder.starterUnchanged"),
         });
         onForked(j.workflow.id);
         return;
@@ -605,13 +644,13 @@ function ActionEditor({
       if (!r.ok) {
         const j = (await r.json().catch(() => ({}))) as { error?: string };
         toast({
-          title: "save failed",
+          title: t("actionsBuilder.saveFailed"),
           description: j.error ?? `${r.status}`,
           variant: "destructive",
         });
         return;
       }
-      toast({ title: "saved" });
+      toast({ title: t("actionsBuilder.saved") });
       onSaved();
     } finally {
       setSaving(false);
@@ -635,7 +674,10 @@ function ActionEditor({
       };
       if (!r.ok) {
         toast({
-          title: r.status === 429 ? "rate limited" : "run failed",
+          title:
+            r.status === 429
+              ? t("actionsBuilder.rateLimited")
+              : t("actionsBuilder.runFailed"),
           description: j.error ?? `${r.status}`,
           variant: "destructive",
         });
@@ -644,14 +686,17 @@ function ActionEditor({
       if (j.result) {
         const lines = j.result.emitted.map(
           (e) =>
-            `${e.kind}: ${e.title}${e.deduped ? " (deduped)" : ""}`,
+            `${e.kind}: ${e.title}${e.deduped ? ` ${t("actionsBuilder.deduped")}` : ""}`,
         );
         const summary =
           lines.length > 0
             ? lines.join("\n")
-            : j.result.note || j.result.error || "no findings";
+            : j.result.note || j.result.error || t("actionsBuilder.noFindings");
         toast({
-          title: `run ${j.result.status} · ${j.result.emitted.length} emitted`,
+          title: t("actionsBuilder.runResult", {
+            status: j.result.status,
+            count: j.result.emitted.length,
+          }),
           description: summary.slice(0, 300),
         });
       }
@@ -692,23 +737,23 @@ function ActionEditor({
         onClick={onBack}
         className="md:hidden font-mono text-[11px] text-muted-foreground hover:text-foreground -mt-1 -ml-1 px-1"
       >
-        ← actions
+        {t("actionsBuilder.backToActions")}
       </button>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1 space-y-1">
           <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            name
+            {t("actionsBuilder.nameLabel")}
           </Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="font-mono text-sm"
-            placeholder="my action"
+            placeholder={t("actionsBuilder.namePlaceholder")}
           />
         </div>
         <div className="space-y-1">
           <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            every
+            {t("actionsBuilder.everyLabel")}
           </Label>
           <Select
             value={String(intervalMs)}
@@ -736,40 +781,44 @@ function ActionEditor({
             onCheckedChange={isNative ? (v) => void setEnabledNow(v) : setEnabled}
           />
           <span className="font-mono text-xs text-muted-foreground">
-            {enabled ? "enabled" : "paused"}
+            {enabled ? t("actionsBuilder.enabled") : t("actionsBuilder.paused")}
           </span>
         </div>
       </div>
 
       {isNative && (
         <div className="font-mono text-[10px] text-muted-foreground bg-foreground/5 border border-border/50 rounded px-3 py-2 leading-relaxed">
-          this is a starter action. toggle it on or off anytime. editing it saves
-          a <span className="text-foreground">custom copy</span>, leaving the
-          original intact. it can't be deleted.
+          {t("actionsBuilder.nativeNoticeBefore")}{" "}
+          <span className="text-foreground">{t("actionsBuilder.customCopy")}</span>
+          {t("actionsBuilder.nativeNoticeAfter")}
         </div>
       )}
 
       <div className="space-y-2">
         <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          instructions
+          {t("actionsBuilder.instructionsLabel")}
         </Label>
         <Textarea
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
-          placeholder={PLACEHOLDER_INSTRUCTIONS}
+          placeholder={t("actionsBuilder.placeholderInstructions")}
           className="font-mono text-[12px] min-h-[200px] leading-relaxed"
         />
         <div className="font-mono text-[10px] text-muted-foreground/70 leading-relaxed">
-          write what to watch for, when to alert, and when to recommend. the
-          agent gathers data with the tools below, then posts <span className="text-foreground">alerts</span> (fyi)
-          and <span className="text-foreground">recommendations</span> (one-click execute) to your inbox.
+          {t("actionsBuilder.instructionsHelpBefore")}{" "}
+          <span className="text-foreground">{t("actionsBuilder.alerts")}</span>{" "}
+          {t("actionsBuilder.instructionsHelpMid")}{" "}
+          <span className="text-foreground">
+            {t("actionsBuilder.recommendations")}
+          </span>{" "}
+          {t("actionsBuilder.instructionsHelpAfter")}
         </div>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            tools the agent may use
+            {t("actionsBuilder.toolsLabel")}
           </Label>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] text-muted-foreground">
@@ -777,13 +826,13 @@ function ActionEditor({
             </span>
             <Switch checked={useAll} onCheckedChange={toggleAll} />
             <span className="font-mono text-[10px] text-muted-foreground">
-              all
+              {t("actionsBuilder.all")}
             </span>
           </div>
         </div>
         {totalTools === 0 && (
           <div className="border border-dashed border-border/60 rounded-md p-4 text-center font-mono text-[10px] text-muted-foreground">
-            no tools available — enable some protocols in configure → services.
+            {t("actionsBuilder.noToolsAvailable")}
           </div>
         )}
         {grouped.map(([protocol, entries]) => {
@@ -807,7 +856,7 @@ function ActionEditor({
                   onClick={() => toggleProtocol(protocol, !allOn)}
                   className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
                 >
-                  {allOn ? "none" : "all"}
+                  {allOn ? t("actionsBuilder.none") : t("actionsBuilder.all")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -837,7 +886,9 @@ function ActionEditor({
       <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
         <Button onClick={save} disabled={saving} className="font-mono text-xs">
           {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-          {isNative ? "save as custom copy" : "save"}
+          {isNative
+            ? t("actionsBuilder.saveAsCustomCopy")
+            : t("actionsBuilder.save")}
         </Button>
         <Button
           variant="outline"
@@ -850,18 +901,18 @@ function ActionEditor({
           ) : (
             <Play className="h-3 w-3 mr-1" />
           )}
-          run now
+          {t("actionsBuilder.runNow")}
         </Button>
         <div className="flex-1" />
         <Button
           variant="outline"
           onClick={() => downloadAction(action)}
           disabled={action.id.startsWith("tmp_")}
-          title="export this action as json"
+          title={t("actionsBuilder.exportActionTitle")}
           className="font-mono text-xs"
         >
           <Upload className="h-3 w-3 mr-1" />
-          export
+          {t("actionsBuilder.export")}
         </Button>
         {!isNative && (
           <Button
@@ -875,13 +926,13 @@ function ActionEditor({
             ) : (
               <Trash2 className="h-3 w-3 mr-1" />
             )}
-            delete
+            {t("actionsBuilder.delete")}
           </Button>
         )}
       </div>
       {action.lastRunError && (
         <div className="font-mono text-[10px] text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2">
-          last error: {action.lastRunError}
+          {t("actionsBuilder.lastError", { error: action.lastRunError })}
         </div>
       )}
     </div>

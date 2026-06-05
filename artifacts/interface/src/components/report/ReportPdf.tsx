@@ -10,6 +10,7 @@ import {
   Polyline,
   Polygon,
   Rect,
+  Font,
   pdf,
 } from "@react-pdf/renderer";
 import { parseMarkdown, type Inline } from "./markdown-utils";
@@ -17,6 +18,46 @@ import { deriveSecurityItems, type Tone } from "./security";
 import { fmtUsd, fmtPct, fmtNum, fmtAge } from "./format";
 import type { ChartPoint, ReportData } from "./types";
 import logoUrl from "@assets/logo.png";
+
+// Helvetica/Courier (the PDF defaults) have no CJK glyphs, so a Chinese or
+// Korean report would render as tofu boxes. We register Noto Sans SC (Chinese)
+// and Noto Sans KR (Korean), each regular + bold, and pick the family by which
+// script the text actually contains. The fonts are large (~10MB each) but
+// react-pdf lazy-loads a family only when a report that needs it is rendered,
+// then caches it for the session. Selection is glyph-based, not lang-based, so
+// the right face is used even if the lang flag and content disagree.
+const SC_FONT = "Noto Sans SC";
+const KR_FONT = "Noto Sans KR";
+Font.register({
+  family: SC_FONT,
+  fonts: [
+    {
+      src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-sc/400Regular/NotoSansSC_400Regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-sc/700Bold/NotoSansSC_700Bold.ttf",
+      fontWeight: 700,
+    },
+  ],
+});
+Font.register({
+  family: KR_FONT,
+  fonts: [
+    {
+      src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-kr/400Regular/NotoSansKR_400Regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-kr/700Bold/NotoSansKR_700Bold.ttf",
+      fontWeight: 700,
+    },
+  ],
+});
+// Hangul syllables/jamo — if present, the text is Korean and needs the KR face.
+const HANGUL_RE = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/;
+// Any CJK ideograph / Hangul / Kana — enough to decide a CJK face is needed.
+const CJK_RE = /[\u3400-\u9fff\uac00-\ud7af\u3040-\u30ff]/;
 
 // Footer call-to-action links, rendered at the end of every report.
 const REPORT_LINKS: { label: string; url: string; display: string }[] = [
@@ -198,14 +239,29 @@ const styles = StyleSheet.create({
   },
 });
 
-function PdfInlines({ inlines }: { inlines: Inline[] }) {
+function PdfInlines({
+  inlines,
+  cjkFamily,
+}: {
+  inlines: Inline[];
+  cjkFamily?: string;
+}) {
   return (
     <>
-      {inlines.map((seg, i) => (
-        <Text key={i} style={seg.bold ? styles.bold : undefined}>
-          {seg.text}
-        </Text>
-      ))}
+      {inlines.map((seg, i) => {
+        // Non-bold segments inherit the CJK family from their parent Text;
+        // bold segments must opt into the CJK bold face or they'd tofu.
+        const style = seg.bold
+          ? cjkFamily
+            ? { fontFamily: cjkFamily, fontWeight: 700 as const }
+            : styles.bold
+          : undefined;
+        return (
+          <Text key={i} style={style}>
+            {seg.text}
+          </Text>
+        );
+      })}
     </>
   );
 }
@@ -311,6 +367,15 @@ function statRows(t: ReportData["token"]): { label: string; value: string }[] {
 function ReportDocument({ data }: { data: ReportData }) {
   const { token, security, analysis, generatedAt } = data;
   const blocks = parseMarkdown(analysis);
+  // Decide a CJK face from everything that can carry non-Latin glyphs (the
+  // analysis body plus the token name/symbol in the header). Hangul wins the
+  // KR face; otherwise any CJK/Kana uses the SC face.
+  const cjkSource = `${analysis} ${token.name ?? ""} ${token.symbol ?? ""}`;
+  const cjk = CJK_RE.test(cjkSource);
+  const cjkFamily = HANGUL_RE.test(cjkSource) ? KR_FONT : SC_FONT;
+  const cjkText = cjk ? { fontFamily: cjkFamily } : null;
+  const cjkBold = cjk ? { fontFamily: cjkFamily, fontWeight: 700 as const } : null;
+  const inlineFamily = cjk ? cjkFamily : undefined;
   const secItems = security ? deriveSecurityItems(security) : [];
   const stamp = generatedAt.toLocaleString("en-US", {
     dateStyle: "medium",
@@ -329,7 +394,7 @@ function ReportDocument({ data }: { data: ReportData }) {
             <Text style={styles.kicker}>token research brief · base</Text>
           </View>
           <View>
-            <Text style={styles.tokenName}>
+            <Text style={cjkBold ? [styles.tokenName, cjkBold] : styles.tokenName}>
               {(token.symbol || "?") + (token.name ? `  ·  ${token.name}` : "")}
             </Text>
             <Text style={styles.tokenSub}>generated {stamp}</Text>
@@ -370,8 +435,8 @@ function ReportDocument({ data }: { data: ReportData }) {
         {blocks.map((b, i) => {
           if (b.type === "heading") {
             return (
-              <Text key={i} style={styles.heading}>
-                <PdfInlines inlines={b.inlines} />
+              <Text key={i} style={cjkBold ? [styles.heading, cjkBold] : styles.heading}>
+                <PdfInlines inlines={b.inlines} cjkFamily={inlineFamily} />
               </Text>
             );
           }
@@ -381,8 +446,8 @@ function ReportDocument({ data }: { data: ReportData }) {
                 {b.items.map((item, j) => (
                   <View key={j} style={styles.listRow}>
                     <Text style={styles.bullet}>•</Text>
-                    <Text style={styles.listText}>
-                      <PdfInlines inlines={item} />
+                    <Text style={cjkText ? [styles.listText, cjkText] : styles.listText}>
+                      <PdfInlines inlines={item} cjkFamily={inlineFamily} />
                     </Text>
                   </View>
                 ))}
@@ -390,8 +455,8 @@ function ReportDocument({ data }: { data: ReportData }) {
             );
           }
           return (
-            <Text key={i} style={styles.paragraph}>
-              <PdfInlines inlines={b.inlines} />
+            <Text key={i} style={cjkText ? [styles.paragraph, cjkText] : styles.paragraph}>
+              <PdfInlines inlines={b.inlines} cjkFamily={inlineFamily} />
             </Text>
           );
         })}

@@ -39,10 +39,21 @@ export function ageDays(createdAt: number | null): number | null {
   return (Date.now() / 1000 - createdAt) / 86400;
 }
 
-export function fmtAge(createdAt: number | null): string {
+// Suffix labels for fmtAge. Defaults to the English units so non-UI callers
+// (e.g. the PDF export) keep rendering identical values without a translator.
+// On-screen callers can pass localized units via the report namespace keys
+// (unitHour / unitDay / unitMonth).
+export type AgeUnits = { h: string; d: string; mo: string };
+
+const DEFAULT_AGE_UNITS: AgeUnits = { h: "h", d: "d", mo: "mo" };
+
+export function fmtAge(
+  createdAt: number | null,
+  units: AgeUnits = DEFAULT_AGE_UNITS,
+): string {
   const d = ageDays(createdAt);
   if (d === null) return "—";
-  if (d < 1) return `${Math.max(1, Math.round(d * 24))}h`;
-  if (d < 30) return `${Math.round(d)}d`;
-  return `${Math.round(d / 30)}mo`;
+  if (d < 1) return `${Math.max(1, Math.round(d * 24))}${units.h}`;
+  if (d < 30) return `${Math.round(d)}${units.d}`;
+  return `${Math.round(d / 30)}${units.mo}`;
 }

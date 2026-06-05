@@ -1,10 +1,22 @@
 import { Router, type IRouter } from "express";
 import { SendChatBody, SendChatResponse } from "@workspace/api-zod";
-import { runBunny, streamBunny } from "../lib/bunny-agent";
+import {
+  runBunny,
+  streamBunny,
+  type AgentLang,
+} from "../lib/bunny-agent";
+import { getLang } from "../lib/settings";
 import { take } from "../lib/rate-limit";
 import { getCurrentUserId } from "../lib/user";
 
 const router: IRouter = Router();
+
+// Prefer a valid client-sent lang; otherwise fall back to the user's stored
+// setting (defaults to zh) so the agent never silently answers in English when
+// the UI is in another language.
+function resolveLang(raw: unknown): AgentLang {
+  return raw === "zh" || raw === "en" || raw === "ko" ? raw : getLang();
+}
 
 router.post("/chat", async (req, res): Promise<void> => {
   const parsed = SendChatBody.safeParse(req.body);
@@ -22,7 +34,8 @@ router.post("/chat", async (req, res): Promise<void> => {
   }
 
   try {
-    const result = await runBunny(parsed.data.message, parsed.data.history);
+    const lang = resolveLang((req.body as { lang?: unknown }).lang);
+    const result = await runBunny(parsed.data.message, parsed.data.history, lang);
     res.json(SendChatResponse.parse(result));
   } catch (err) {
     req.log.error({ err }, "Bunny chat failed");
@@ -71,8 +84,9 @@ router.post("/chat/stream", async (req, res): Promise<void> => {
     clearInterval(keepAlive);
   });
 
+  const lang = resolveLang((req.body as { lang?: unknown }).lang);
   try {
-    for await (const ev of streamBunny(parsed.data.message, parsed.data.history)) {
+    for await (const ev of streamBunny(parsed.data.message, parsed.data.history, lang)) {
       if (closed) break;
       write(ev);
     }
